@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OpenGov Pulse — Community Operations Center</title>
-<meta name="description" content="OpenGov Pulse: real-time community operations command center for local government." />
+<meta name="description" content="OpenGov Pulse: real-time anomaly detection and operational response for local government." />
 
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -15,232 +15,895 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  /* ─────────────── MUI-style design tokens (OpenGov palette) ─────────────── */
   :root {
-    --blurple: #4B3FFF;
-    --blurple-lite: #5069FF;
-    --dark: #31414E;
-    --med: #7F8CA0;
-    --lite: #DCE6F4;
-    --orange: #F86A0B;
-    --green: #08A847;
-    --red: #DE3423;
-    --yellow: #FFB636;
-    --blue: #0095DA;
-    --purple: #B056FF;
-    --white: #FFFFFF;
-    --g25: #F4F6F9;
-    --g50: #ECEEF1;
-    --g100: #E0E2E5;
-    --g150: #D3D5D8;
-    --g200: #C6C8CA;
-    --g300: #ADAFB1;
-    --g400: #959698;
-    --g500: #7C7D7F;
-    --g600: #636465;
-    --g700: #4A4B4C;
-    --g800: #323233;
-    --g900: #19191A;
+    /* Palette — Material UI semantic mapped to OpenGov brand */
+    --mui-primary: #4B3FFF;
+    --mui-primary-dark: #3D32CC;
+    --mui-primary-light: #7166FF;
+    --mui-primary-contrast: #FFFFFF;
+    --mui-secondary: #F86A0B;
+    --mui-secondary-dark: #C45508;
+    --mui-error: #DE3423;
+    --mui-error-dark: #B12A1C;
+    --mui-warning: #FFB636;
+    --mui-warning-dark: #C68B22;
+    --mui-info: #0095DA;
+    --mui-info-dark: #0073A8;
+    --mui-success: #08A847;
+    --mui-success-dark: #067F36;
+
+    /* Surfaces */
+    --mui-bg-default: #F5F5F7;
+    --mui-bg-paper: #FFFFFF;
+    --mui-bg-app: #0d1620;
+
+    /* Text on light */
+    --mui-text-primary: #1A2332;
+    --mui-text-secondary: #5C6975;
+    --mui-text-disabled: #9DA5B0;
+
+    /* Text on dark */
+    --mui-text-on-dark: #FFFFFF;
+    --mui-text-on-dark-secondary: rgba(255,255,255,0.72);
+    --mui-text-on-dark-disabled: rgba(255,255,255,0.5);
+
+    /* Dividers and lines */
+    --mui-divider: rgba(0,0,0,0.08);
+    --mui-divider-strong: rgba(0,0,0,0.16);
+    --mui-action-hover: rgba(75,63,255,0.04);
+    --mui-action-selected: rgba(75,63,255,0.08);
+
+    /* Material elevations */
+    --elev-1: 0 2px 1px -1px rgba(0,0,0,0.08), 0 1px 1px 0 rgba(0,0,0,0.06), 0 1px 3px 0 rgba(0,0,0,0.04);
+    --elev-2: 0 3px 1px -2px rgba(0,0,0,0.08), 0 2px 2px 0 rgba(0,0,0,0.06), 0 1px 5px 0 rgba(0,0,0,0.05);
+    --elev-4: 0 2px 4px -1px rgba(0,0,0,0.10), 0 4px 5px 0 rgba(0,0,0,0.07), 0 1px 10px 0 rgba(0,0,0,0.06);
+    --elev-6: 0 3px 5px -1px rgba(0,0,0,0.10), 0 6px 10px 0 rgba(0,0,0,0.07), 0 1px 18px 0 rgba(0,0,0,0.06);
+    --elev-8: 0 5px 5px -3px rgba(0,0,0,0.12), 0 8px 10px 1px rgba(0,0,0,0.08), 0 3px 14px 2px rgba(0,0,0,0.06);
+    --elev-16: 0 8px 10px -5px rgba(0,0,0,0.14), 0 16px 24px 2px rgba(0,0,0,0.09), 0 6px 30px 5px rgba(0,0,0,0.07);
+    --elev-24: 0 11px 15px -7px rgba(0,0,0,0.16), 0 24px 38px 3px rgba(0,0,0,0.10), 0 9px 46px 8px rgba(0,0,0,0.08);
+
+    /* Radii (MUI default 4px, OpenGov uses slightly larger) */
+    --r-1: 4px;
+    --r-2: 8px;
+    --r-3: 12px;
+    --r-4: 16px;
+    --r-pill: 999px;
   }
-  html, body { height: 100%; margin: 0; }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
-    font-family: 'DM Sans', sans-serif;
-    background: #0d1620;
-    color: var(--dark);
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--mui-bg-app);
+    color: var(--mui-text-primary);
     overflow: hidden;
-    font-size: 13px;
-    line-height: 1.45;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   #root { height: 100vh; display: flex; flex-direction: column; }
   button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
   input, textarea { font-family: inherit; }
 
-  /* ─────────────── Top bar ─────────────── */
-  .topbar { background: var(--g900); height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid #232f3a; z-index: 1000; }
-  .topbar-left { display: flex; align-items: center; gap: 16px; }
-  .topbar-product { font-size: 11px; font-weight: 700; color: var(--white); letter-spacing: 1.4px; text-transform: uppercase; padding: 4px 10px; border-radius: 4px; background: var(--blurple); }
-  .topbar-divider { width: 1px; height: 22px; background: #2a3743; }
-  .topbar-city { display: flex; align-items: center; gap: 10px; }
-  .topbar-city-name { font-size: 13px; font-weight: 600; color: var(--white); }
-  .topbar-city-meta { font-size: 11px; color: #8b9aab; font-family: 'DM Mono', monospace; }
-  .topbar-live { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #b6c3d4; font-family: 'DM Mono', monospace; padding: 4px 10px; background: rgba(8,168,71,0.12); border: 1px solid rgba(8,168,71,0.3); border-radius: 4px; }
-  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(8,168,71,0.7); animation: pulse 2s infinite; }
+  /* MUI Typography scale */
+  .mui-h6 { font-size: 1.125rem; font-weight: 600; line-height: 1.4; letter-spacing: 0.0075em; color: var(--mui-text-primary); }
+  .mui-subtitle1 { font-size: 1rem; font-weight: 500; line-height: 1.5; color: var(--mui-text-primary); }
+  .mui-subtitle2 { font-size: 0.875rem; font-weight: 600; line-height: 1.5; color: var(--mui-text-primary); }
+  .mui-body1 { font-size: 1rem; font-weight: 400; line-height: 1.55; color: var(--mui-text-primary); }
+  .mui-body2 { font-size: 0.8125rem; font-weight: 400; line-height: 1.55; color: var(--mui-text-secondary); }
+  .mui-caption { font-size: 0.75rem; font-weight: 400; line-height: 1.45; color: var(--mui-text-secondary); }
+  .mui-overline { font-size: 0.6875rem; font-weight: 600; line-height: 1.5; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mui-text-secondary); font-family: 'DM Mono', monospace; }
+  .mono { font-family: 'DM Mono', monospace; }
+
+  /* ─────────────── AppBar ─────────────── */
+  .appbar {
+    background: #19232E;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    flex-shrink: 0;
+    box-shadow: var(--elev-4);
+    z-index: 1100;
+    color: var(--mui-text-on-dark);
+  }
+  .appbar-left { display: flex; align-items: center; gap: 18px; }
+  .appbar-product {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: var(--r-1);
+    background: var(--mui-primary);
+    color: var(--mui-primary-contrast);
+  }
+  .appbar-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.12); }
+  .appbar-context { display: flex; align-items: center; gap: 10px; }
+  .appbar-context .name { font-size: 0.875rem; font-weight: 600; color: var(--mui-text-on-dark); }
+  .appbar-context .meta { font-size: 0.75rem; color: var(--mui-text-on-dark-secondary); font-family: 'DM Mono', monospace; }
+
+  .engine-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px;
+    background: rgba(8,168,71,0.14);
+    border: 1px solid rgba(8,168,71,0.32);
+    border-radius: var(--r-1);
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    color: #6FE39A;
+  }
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--mui-success);
+    box-shadow: 0 0 0 0 rgba(8,168,71,0.7);
+    animation: pulse 2s infinite;
+  }
   @keyframes pulse {
     0% { box-shadow: 0 0 0 0 rgba(8,168,71,0.7); }
     70% { box-shadow: 0 0 0 6px rgba(8,168,71,0); }
     100% { box-shadow: 0 0 0 0 rgba(8,168,71,0); }
   }
-  .topbar-right { display: flex; align-items: center; gap: 10px; }
-  .topbar-search { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); padding: 6px 12px; border-radius: 6px; min-width: 280px; border: 1px solid transparent; }
-  .topbar-search:focus-within { border-color: var(--blurple); background: rgba(255,255,255,0.09); }
-  .topbar-search input { background: transparent; border: none; outline: none; color: var(--white); font-size: 12px; flex: 1; }
-  .topbar-search input::placeholder { color: #8b9aab; }
-  .topbar-search kbd { font-family: 'DM Mono', monospace; font-size: 10px; color: #8b9aab; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; }
-  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--blurple); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--white); }
 
-  /* ─────────────── Main map area ─────────────── */
+  .appbar-right { display: flex; align-items: center; gap: 10px; }
+  .appbar-search {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.08);
+    padding: 7px 12px;
+    border-radius: var(--r-1);
+    min-width: 320px;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .appbar-search:focus-within {
+    border-color: var(--mui-primary);
+    background: rgba(255,255,255,0.12);
+  }
+  .appbar-search input {
+    background: transparent; border: none; outline: none;
+    color: var(--mui-text-on-dark); font-size: 0.8125rem; flex: 1;
+  }
+  .appbar-search input::placeholder { color: var(--mui-text-on-dark-secondary); }
+  .appbar-search kbd {
+    font-family: 'DM Mono', monospace; font-size: 0.6875rem;
+    color: var(--mui-text-on-dark-secondary);
+    background: rgba(255,255,255,0.1);
+    padding: 2px 6px; border-radius: 3px;
+  }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--mui-primary);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 600;
+    color: var(--mui-primary-contrast);
+  }
+
+  /* Search results dropdown — MUI Menu styled */
+  .search-results {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-1);
+    max-height: 360px; overflow-y: auto;
+    box-shadow: var(--elev-8);
+    z-index: 1200;
+    padding: 6px 0;
+  }
+  .search-result {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  .search-result:hover { background: var(--mui-action-hover); }
+  .search-result-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--mui-bg-default);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .search-result-title { font-size: 0.875rem; color: var(--mui-text-primary); font-weight: 500; }
+  .search-result-sub { font-size: 0.75rem; color: var(--mui-text-secondary); margin-top: 2px; font-family: 'DM Mono', monospace; }
+  .search-result-type {
+    font-size: 0.625rem; color: var(--mui-text-secondary);
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 2px 8px;
+    background: var(--mui-bg-default);
+    border-radius: var(--r-pill);
+  }
+
+  /* ─────────────── Map area ─────────────── */
   .map-host { flex: 1; position: relative; overflow: hidden; }
   #map { width: 100%; height: 100%; background: #1a2330; }
   .leaflet-container { font-family: 'DM Sans', sans-serif; background: #1a2330; }
-  .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
-  .leaflet-popup-content { font-family: 'DM Sans', sans-serif; margin: 12px 14px; font-size: 12px; line-height: 1.5; }
+  .leaflet-popup-content-wrapper { border-radius: var(--r-2); box-shadow: var(--elev-8); }
+  .leaflet-popup-content { font-family: 'DM Sans', sans-serif; margin: 14px 16px; font-size: 0.8125rem; line-height: 1.5; }
 
-  /* ─────────────── Floating filter strip ─────────────── */
+  /* ─────────────── Floating overlays ─────────────── */
   .floating { position: absolute; z-index: 500; pointer-events: none; }
   .floating > * { pointer-events: auto; }
-  .filter-strip { top: 14px; left: 14px; right: 460px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .filter-chips { display: flex; gap: 6px; background: var(--white); padding: 6px; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); border: 1px solid rgba(0,0,0,0.05); }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; background: transparent; font-size: 12px; font-weight: 600; color: var(--g600); border: 1px solid transparent; transition: all 0.15s; cursor: pointer; }
-  .chip:hover { background: var(--g25); }
-  .chip.active { background: var(--blurple); color: var(--white); }
-  .chip.active.danger { background: var(--red); }
-  .chip-count { font-family: 'DM Mono', monospace; font-size: 10px; opacity: 0.85; padding: 1px 6px; border-radius: 8px; background: rgba(0,0,0,0.08); }
-  .chip.active .chip-count { background: rgba(255,255,255,0.22); }
-  .chip-dot { width: 8px; height: 8px; border-radius: 50%; }
 
-  .tool-group { display: flex; gap: 0; background: var(--white); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); border: 1px solid rgba(0,0,0,0.05); padding: 6px; }
-  .tool-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; background: transparent; font-size: 12px; font-weight: 600; color: var(--dark); cursor: pointer; }
-  .tool-btn:hover { background: var(--g25); }
-  .tool-btn.active { background: var(--blurple); color: var(--white); box-shadow: 0 2px 8px rgba(75,63,255,0.35); }
-  .tool-btn kbd { font-family: 'DM Mono', monospace; font-size: 9px; padding: 1px 4px; border-radius: 3px; background: rgba(0,0,0,0.06); margin-left: 4px; }
-  .tool-btn.active kbd { background: rgba(255,255,255,0.2); }
+  /* MUI Paper container */
+  .mui-paper {
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-2);
+    box-shadow: var(--elev-2);
+  }
+  .mui-paper-elev-4 { box-shadow: var(--elev-4); }
+  .mui-paper-elev-8 { box-shadow: var(--elev-8); }
 
-  /* Time window selector */
-  .time-window { top: 14px; right: 480px; }
-  .time-window .tool-group { padding: 4px; }
-  .time-window .tool-btn { padding: 5px 10px; font-size: 11px; font-family: 'DM Mono', monospace; }
+  /* Filter strip top-left */
+  .filter-strip { top: 16px; left: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; max-width: calc(100% - 480px); }
 
-  /* ─────────────── Live event ticker (bottom-left) ─────────────── */
-  .ticker { bottom: 16px; left: 16px; max-width: 380px; background: rgba(13,22,32,0.92); backdrop-filter: blur(12px); border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); padding: 12px 14px; color: var(--white); }
-  .ticker-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-  .ticker-h-label { font-size: 10px; font-weight: 600; color: #8b9aab; text-transform: uppercase; letter-spacing: 1px; font-family: 'DM Mono', monospace; }
-  .ticker-h-count { font-size: 10px; color: var(--green); font-family: 'DM Mono', monospace; margin-left: auto; }
-  .ticker-event { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; padding: 6px 0; cursor: pointer; border-radius: 6px; }
-  .ticker-event:hover { background: rgba(255,255,255,0.05); margin: 6px -8px; padding: 6px 8px; }
-  .ticker-event-icon { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px; }
-  .ticker-event-body { min-width: 0; }
-  .ticker-event-title { font-size: 12px; font-weight: 600; color: var(--white); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ticker-event-meta { font-size: 10px; color: #8b9aab; font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .ticker-event-sev { width: 4px; align-self: stretch; border-radius: 2px; }
-  @keyframes flash { 0% { background: rgba(75,63,255,0.3); } 100% { background: transparent; } }
-  .ticker-event.fresh { animation: flash 1.6s ease-out; }
+  .filter-paper {
+    background: var(--mui-bg-paper);
+    padding: 6px;
+    border-radius: var(--r-2);
+    box-shadow: var(--elev-4);
+    display: flex; gap: 4px;
+  }
 
-  /* ─────────────── Map zoom controls ─────────────── */
-  .map-zoom { bottom: 16px; right: 480px; background: var(--white); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); display: flex; flex-direction: column; }
-  .map-zoom button { width: 34px; height: 34px; border-bottom: 1px solid var(--g100); display: flex; align-items: center; justify-content: center; color: var(--dark); }
+  /* MUI Chip */
+  .mui-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: var(--r-pill);
+    font-size: 0.8125rem; font-weight: 500;
+    color: var(--mui-text-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    cursor: pointer;
+    user-select: none;
+  }
+  .mui-chip:hover { background: var(--mui-action-hover); }
+  .mui-chip.filled { background: var(--mui-primary); color: var(--mui-primary-contrast); border-color: var(--mui-primary); }
+  .mui-chip.filled.error { background: var(--mui-error); border-color: var(--mui-error); }
+  .mui-chip.filled.info { background: var(--mui-info); border-color: var(--mui-info); }
+  .mui-chip.filled:hover { background: var(--mui-primary-dark); }
+  .mui-chip.filled.error:hover { background: var(--mui-error-dark); }
+  .mui-chip.filled.info:hover { background: var(--mui-info-dark); }
+  .mui-chip-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .mui-chip-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6875rem; font-weight: 600;
+    padding: 1px 7px;
+    border-radius: var(--r-pill);
+    background: rgba(0,0,0,0.06);
+    color: var(--mui-text-secondary);
+  }
+  .mui-chip.filled .mui-chip-count {
+    background: rgba(255,255,255,0.22);
+    color: rgba(255,255,255,0.95);
+  }
+
+  /* MUI Button */
+  .mui-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: var(--r-1);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .mui-btn-contained {
+    background: var(--mui-primary);
+    color: var(--mui-primary-contrast);
+    box-shadow: var(--elev-2);
+  }
+  .mui-btn-contained:hover { background: var(--mui-primary-dark); box-shadow: var(--elev-4); }
+  .mui-btn-outlined {
+    background: transparent;
+    color: var(--mui-primary);
+    border-color: rgba(75,63,255,0.5);
+  }
+  .mui-btn-outlined:hover { background: var(--mui-action-hover); border-color: var(--mui-primary); }
+  .mui-btn-text {
+    background: transparent;
+    color: var(--mui-primary);
+    padding: 6px 10px;
+    text-transform: uppercase;
+  }
+  .mui-btn-text:hover { background: var(--mui-action-hover); }
+  .mui-btn kbd {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.625rem;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.08);
+    margin-left: 4px;
+    text-transform: none;
+  }
+  .mui-btn-contained kbd { background: rgba(255,255,255,0.18); }
+
+  /* MUI IconButton */
+  .mui-icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--mui-text-secondary);
+    transition: background 0.15s;
+  }
+  .mui-icon-btn:hover { background: var(--mui-action-hover); color: var(--mui-text-primary); }
+
+  /* Tool group as MUI ButtonGroup */
+  .tool-group {
+    display: flex; gap: 0;
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-2);
+    box-shadow: var(--elev-4);
+    padding: 6px;
+  }
+
+  /* ─────────────── Anomaly stream (bottom-left) ─────────────── */
+  .anomaly-stream {
+    bottom: 16px; left: 16px;
+    width: 380px;
+    background: rgba(25, 35, 46, 0.94);
+    backdrop-filter: blur(18px);
+    border-radius: var(--r-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--mui-text-on-dark);
+    overflow: hidden;
+    box-shadow: var(--elev-8);
+  }
+  .anomaly-stream-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .anomaly-stream-h-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6875rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--mui-text-on-dark-secondary);
+  }
+  .anomaly-stream-h-count {
+    font-size: 0.6875rem;
+    color: #6FE39A;
+    font-family: 'DM Mono', monospace;
+    margin-left: auto;
+  }
+  .anomaly-stream-list { max-height: 280px; overflow-y: auto; }
+  .anomaly-stream-item {
+    display: grid;
+    grid-template-columns: 4px auto 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+  }
+  .anomaly-stream-item:last-child { border-bottom: none; }
+  .anomaly-stream-item:hover { background: rgba(255,255,255,0.04); }
+  .anomaly-stream-sev { align-self: stretch; border-radius: 2px; }
+  .anomaly-stream-icon {
+    width: 28px; height: 28px;
+    border-radius: var(--r-1);
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.06);
+    font-size: 14px;
+  }
+  .anomaly-stream-body { min-width: 0; }
+  .anomaly-stream-title {
+    font-size: 0.8125rem; font-weight: 500;
+    color: var(--mui-text-on-dark);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .anomaly-stream-meta {
+    font-size: 0.6875rem;
+    color: var(--mui-text-on-dark-secondary);
+    font-family: 'DM Mono', monospace;
+    margin-top: 2px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .anomaly-stream-conf {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: #6FE39A;
+    font-weight: 600;
+  }
+  @keyframes flash { 0% { background: rgba(75,63,255,0.32); } 100% { background: transparent; } }
+  .anomaly-stream-item.fresh { animation: flash 1.8s ease-out; }
+
+  /* ─────────────── Map zoom (MUI Paper) ─────────────── */
+  .map-zoom {
+    bottom: 16px; right: calc(16px + 460px + 12px);
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-2);
+    box-shadow: var(--elev-4);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .map-zoom button {
+    width: 38px; height: 38px;
+    border-bottom: 1px solid var(--mui-divider);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--mui-text-primary);
+  }
   .map-zoom button:last-child { border-bottom: none; }
-  .map-zoom button:hover { background: var(--g25); }
+  .map-zoom button:hover { background: var(--mui-action-hover); color: var(--mui-primary); }
 
-  /* ─────────────── Slide-in detail panel ─────────────── */
-  .panel { position: absolute; top: 14px; right: 14px; bottom: 14px; width: 440px; background: var(--white); border-radius: 12px; box-shadow: 0 12px 36px rgba(0,0,0,0.28); display: flex; flex-direction: column; z-index: 600; overflow: hidden; transform: translateX(0); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-  .panel.hidden { transform: translateX(calc(100% + 24px)); pointer-events: none; }
-  .panel-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--g100); flex-shrink: 0; }
-  .panel-h-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .panel-type-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.6px; font-family: 'DM Mono', monospace; }
-  .panel-id { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--g500); margin-left: auto; }
-  .panel-close { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--g500); }
-  .panel-close:hover { background: var(--g50); color: var(--dark); }
-  .panel-title { font-size: 18px; font-weight: 700; color: var(--dark); margin-bottom: 4px; line-height: 1.3; }
-  .panel-sub { font-size: 12px; color: var(--g500); }
-  .panel-sub strong { color: var(--dark); font-weight: 600; }
-  .panel-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
-  .panel-section { margin-bottom: 22px; }
-  .panel-section:last-child { margin-bottom: 0; }
-  .panel-section-h { font-size: 10px; font-weight: 700; color: var(--med); text-transform: uppercase; letter-spacing: 0.8px; font-family: 'DM Mono', monospace; margin-bottom: 10px; }
+  /* ─────────────── MUI Drawer (right detail panel) ─────────────── */
+  .drawer {
+    position: absolute;
+    top: 16px; right: 16px; bottom: 16px;
+    width: 460px;
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-2);
+    box-shadow: var(--elev-16);
+    display: flex; flex-direction: column;
+    z-index: 600;
+    overflow: hidden;
+    transform: translateX(0);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .drawer.hidden { transform: translateX(calc(100% + 32px)); pointer-events: none; }
+  .drawer-head {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--mui-divider);
+    flex-shrink: 0;
+  }
+  .drawer-h-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .drawer-id { font-family: 'DM Mono', monospace; font-size: 0.6875rem; color: var(--mui-text-secondary); margin-left: auto; }
+  .drawer-title { font-size: 1.25rem; font-weight: 600; color: var(--mui-text-primary); margin-bottom: 4px; line-height: 1.35; letter-spacing: -0.01em; }
+  .drawer-sub { font-size: 0.8125rem; color: var(--mui-text-secondary); }
+  .drawer-sub strong { color: var(--mui-text-primary); font-weight: 600; }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px 24px; }
 
-  /* Streetview thumbnail */
-  .panel-image { width: 100%; height: 160px; border-radius: 8px; background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%); position: relative; overflow: hidden; margin-bottom: 12px; }
-  .panel-image::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent, transparent 32px, rgba(255,255,255,0.04) 32px, rgba(255,255,255,0.04) 64px), linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4)); }
-  .panel-image-meta { position: absolute; bottom: 10px; left: 12px; display: flex; gap: 6px; z-index: 1; }
-  .panel-image-tag { font-family: 'DM Mono', monospace; font-size: 9px; padding: 3px 7px; border-radius: 3px; background: rgba(0,0,0,0.55); color: var(--white); backdrop-filter: blur(4px); letter-spacing: 0.4px; text-transform: uppercase; }
-  .panel-image-mark { position: absolute; z-index: 1; top: 35%; left: 45%; }
-  .panel-image-mark .ring { width: 56px; height: 56px; border-radius: 50%; border: 2px dashed rgba(255,255,255,0.85); animation: spin 8s linear infinite; }
+  /* MUI Severity badge */
+  .mui-badge {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: var(--r-1);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'DM Mono', monospace;
+    line-height: 1;
+  }
+  .mui-badge.critical { background: rgba(222,52,35,0.12); color: var(--mui-error-dark); }
+  .mui-badge.high { background: rgba(248,106,11,0.14); color: var(--mui-secondary-dark); }
+  .mui-badge.medium { background: rgba(255,182,54,0.18); color: #B07F0E; }
+  .mui-badge.low { background: rgba(0,149,218,0.12); color: var(--mui-info-dark); }
+  .mui-badge.success { background: rgba(8,168,71,0.12); color: var(--mui-success-dark); }
+  .mui-badge.primary { background: rgba(75,63,255,0.10); color: var(--mui-primary); }
+
+  /* Section heading (MUI overline style) */
+  .section-h {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--mui-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.10em;
+    margin-bottom: 10px;
+  }
+  .section { margin-bottom: 22px; }
+  .section:last-child { margin-bottom: 0; }
+
+  /* ─────────────── Anomaly card (Material) ─────────────── */
+  .anom-card {
+    background: linear-gradient(180deg, #FAFAFC 0%, #F2F2F8 100%);
+    border: 1px solid var(--mui-divider);
+    border-radius: var(--r-3);
+    overflow: hidden;
+  }
+  .anom-card-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--mui-divider);
+    background: var(--mui-bg-paper);
+  }
+  .anom-card-method {
+    flex: 1;
+  }
+  .anom-card-method-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--mui-primary);
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+  .anom-card-method-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--mui-text-primary);
+  }
+  .anom-confidence {
+    display: flex; flex-direction: column; align-items: center;
+    flex-shrink: 0;
+  }
+  .anom-confidence-ring {
+    position: relative;
+    width: 44px; height: 44px;
+  }
+  .anom-confidence-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .anom-confidence-track { fill: none; stroke: var(--mui-divider); stroke-width: 4; }
+  .anom-confidence-fill { fill: none; stroke: var(--mui-success); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 0.6s; }
+  .anom-confidence-text {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.6875rem; font-weight: 700;
+    color: var(--mui-text-primary);
+    font-family: 'DM Mono', monospace;
+  }
+  .anom-confidence-label {
+    font-size: 0.6875rem;
+    color: var(--mui-text-secondary);
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .anom-card-body { padding: 16px 18px; }
+  .anom-trigger {
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-2);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    border-left: 3px solid var(--mui-primary);
+  }
+  .anom-trigger-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.625rem;
+    color: var(--mui-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .anom-trigger-text {
+    font-size: 0.8125rem;
+    color: var(--mui-text-primary);
+    font-family: 'DM Mono', monospace;
+    line-height: 1.5;
+  }
+  .anom-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--mui-divider);
+    border-radius: var(--r-2);
+    overflow: hidden;
+    margin-top: 14px;
+  }
+  .anom-stat {
+    background: var(--mui-bg-paper);
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .anom-stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.625rem;
+    color: var(--mui-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .anom-stat-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--mui-text-primary);
+    margin-top: 2px;
+    font-family: 'DM Mono', monospace;
+  }
+  .anom-stat-value.deviation { color: var(--mui-error); }
+
+  /* Sparkline */
+  .anom-sparkline {
+    margin-top: 12px;
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-2);
+    padding: 10px 12px;
+  }
+  .anom-sparkline-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.625rem;
+    color: var(--mui-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ─────────────── Evidence image (street view) ─────────────── */
+  .evidence-image {
+    width: 100%; height: 160px;
+    border-radius: var(--r-2);
+    background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    position: relative; overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .evidence-image::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      repeating-linear-gradient(90deg, transparent, transparent 32px, rgba(255,255,255,0.04) 32px, rgba(255,255,255,0.04) 64px),
+      linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4));
+  }
+  .evidence-meta {
+    position: absolute; bottom: 10px; left: 12px;
+    display: flex; gap: 6px; z-index: 1;
+  }
+  .evidence-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.625rem; font-weight: 600;
+    padding: 4px 8px;
+    border-radius: var(--r-1);
+    background: rgba(0,0,0,0.62);
+    color: #FFFFFF;
+    backdrop-filter: blur(4px);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .evidence-mark { position: absolute; top: 35%; left: 45%; z-index: 1; }
+  .evidence-mark .ring {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    border: 2px dashed rgba(255,255,255,0.85);
+    animation: spin 8s linear infinite;
+  }
   @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-  .panel-image-mark .label { position: absolute; top: 60px; left: 50%; transform: translateX(-50%); font-family: 'DM Mono', monospace; font-size: 10px; background: var(--blurple); color: var(--white); padding: 3px 8px; border-radius: 4px; white-space: nowrap; font-weight: 600; }
+  .evidence-mark .label {
+    position: absolute; top: 60px; left: 50%;
+    transform: translateX(-50%);
+    font-family: 'DM Mono', monospace; font-size: 0.6875rem;
+    background: var(--mui-primary);
+    color: #FFFFFF;
+    padding: 3px 8px; border-radius: var(--r-1);
+    white-space: nowrap; font-weight: 600;
+    letter-spacing: 0.04em;
+  }
 
-  /* Field rows */
-  .field-row { display: grid; grid-template-columns: 130px 1fr; gap: 10px; padding: 7px 0; font-size: 12px; border-bottom: 1px solid var(--g50); }
-  .field-row:last-child { border-bottom: none; }
-  .field-label { color: var(--g500); font-weight: 500; }
-  .field-value { color: var(--dark); font-weight: 500; }
-  .field-value.mono { font-family: 'DM Mono', monospace; font-size: 11px; }
-  .field-value.big { font-size: 14px; font-weight: 700; }
+  /* MUI List rows */
+  .mui-list-row {
+    display: grid; grid-template-columns: 130px 1fr;
+    gap: 12px;
+    padding: 8px 0;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid var(--mui-divider);
+  }
+  .mui-list-row:last-child { border-bottom: none; }
+  .mui-list-label { color: var(--mui-text-secondary); font-weight: 500; }
+  .mui-list-value { color: var(--mui-text-primary); font-weight: 500; }
+  .mui-list-value.mono { font-family: 'DM Mono', monospace; font-size: 0.75rem; }
+  .mui-list-value.big { font-size: 1rem; font-weight: 700; }
 
-  /* Action buttons (the heart of "take action") */
-  .actions-grid { display: grid; gap: 8px; }
-  .action-btn { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; background: var(--white); border: 1px solid var(--g100); cursor: pointer; text-align: left; transition: all 0.15s; }
-  .action-btn:hover { border-color: var(--blurple); background: rgba(75,63,255,0.03); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-  .action-btn.primary { background: var(--blurple); border-color: var(--blurple); color: var(--white); }
-  .action-btn.primary:hover { background: var(--blurple-lite); }
-  .action-btn.danger { border-color: rgba(222,52,35,0.3); }
-  .action-btn.danger:hover { background: rgba(222,52,35,0.04); border-color: var(--red); }
-  .action-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(75,63,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-  .action-btn.primary .action-icon { background: rgba(255,255,255,0.18); }
-  .action-btn.danger .action-icon { background: rgba(222,52,35,0.1); }
-  .action-body .action-title { font-size: 13px; font-weight: 600; color: inherit; }
-  .action-body .action-sub { font-size: 11px; color: var(--g500); margin-top: 2px; }
-  .action-btn.primary .action-body .action-sub { color: rgba(255,255,255,0.8); }
-  .action-arrow { color: var(--g300); }
+  /* ─────────────── Action buttons (Material list-item style) ─────────────── */
+  .actions { display: flex; flex-direction: column; gap: 8px; }
+  .action-btn {
+    display: grid;
+    grid-template-columns: 40px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: var(--r-2);
+    background: var(--mui-bg-paper);
+    border: 1px solid var(--mui-divider);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+  .action-btn:hover {
+    border-color: var(--mui-primary);
+    background: var(--mui-action-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--elev-2);
+  }
+  .action-btn.primary {
+    background: var(--mui-primary);
+    border-color: var(--mui-primary);
+    color: var(--mui-primary-contrast);
+    box-shadow: var(--elev-2);
+  }
+  .action-btn.primary:hover {
+    background: var(--mui-primary-dark);
+    box-shadow: var(--elev-4);
+  }
+  .action-btn.danger:hover {
+    border-color: var(--mui-error);
+    background: rgba(222,52,35,0.04);
+  }
+  .action-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: rgba(75,63,255,0.10);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .action-btn.primary .action-icon { background: rgba(255,255,255,0.20); }
+  .action-btn.danger .action-icon { background: rgba(222,52,35,0.10); }
+  .action-body .action-title { font-size: 0.875rem; font-weight: 600; color: inherit; line-height: 1.3; }
+  .action-body .action-sub { font-size: 0.75rem; color: var(--mui-text-secondary); margin-top: 3px; line-height: 1.4; }
+  .action-btn.primary .action-body .action-sub { color: rgba(255,255,255,0.78); }
+  .action-arrow { color: var(--mui-text-disabled); }
   .action-btn.primary .action-arrow { color: rgba(255,255,255,0.7); }
 
-  /* Severity */
-  .sev-critical { background: rgba(222,52,35,0.12); color: var(--red); }
-  .sev-high { background: rgba(248,106,11,0.12); color: var(--orange); }
-  .sev-medium { background: rgba(255,182,54,0.18); color: #b87a00; }
-  .sev-low { background: rgba(0,149,218,0.1); color: var(--blue); }
-  .sev-good { background: rgba(8,168,71,0.1); color: var(--green); }
+  /* Recommendation banner */
+  .recommendation {
+    background: linear-gradient(135deg, rgba(75,63,255,0.06) 0%, rgba(80,105,255,0.04) 100%);
+    border: 1px solid rgba(75,63,255,0.16);
+    border-radius: var(--r-2);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .recommendation-icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--mui-primary);
+    color: #FFFFFF;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 14px;
+  }
+  .recommendation-text {
+    font-size: 0.8125rem;
+    color: var(--mui-text-primary);
+    line-height: 1.5;
+  }
+  .recommendation-text strong { color: var(--mui-primary); }
 
-  /* Linked records mini-list */
-  .linked-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 10px; border-radius: 7px; cursor: pointer; }
-  .linked-row:hover { background: var(--g25); }
-  .linked-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--g50); display: flex; align-items: center; justify-content: center; font-size: 13px; }
-  .linked-title { font-size: 12px; font-weight: 600; color: var(--dark); }
-  .linked-sub { font-size: 10px; color: var(--g500); margin-top: 1px; font-family: 'DM Mono', monospace; }
+  /* MUI Snackbar/Alert */
+  .snackbar-stack {
+    position: fixed; top: 76px; right: 24px;
+    display: flex; flex-direction: column; gap: 10px;
+    z-index: 9000; max-width: 380px;
+  }
+  .snackbar {
+    background: var(--mui-bg-paper);
+    border-radius: var(--r-2);
+    padding: 10px 14px 10px 12px;
+    box-shadow: var(--elev-8);
+    border-left: 4px solid var(--mui-success);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px; align-items: center;
+    animation: snackIn 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    min-width: 320px;
+  }
+  .snackbar.purple { border-left-color: var(--mui-primary); }
+  .snackbar.orange { border-left-color: var(--mui-secondary); }
+  .snackbar.red { border-left-color: var(--mui-error); }
+  @keyframes snackIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .snackbar-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(8,168,71,0.10);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 16px;
+  }
+  .snackbar.purple .snackbar-icon { background: rgba(75,63,255,0.10); }
+  .snackbar.orange .snackbar-icon { background: rgba(248,106,11,0.12); }
+  .snackbar.red .snackbar-icon { background: rgba(222,52,35,0.10); }
+  .snackbar-title { font-size: 0.8125rem; font-weight: 600; color: var(--mui-text-primary); line-height: 1.35; }
+  .snackbar-sub { font-size: 0.75rem; color: var(--mui-text-secondary); margin-top: 2px; line-height: 1.4; }
 
-  /* Toasts */
-  .toast-stack { position: fixed; top: 64px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 9000; max-width: 380px; }
-  .toast { background: var(--white); border-radius: 10px; padding: 12px 16px; box-shadow: 0 8px 28px rgba(0,0,0,0.22); border-left: 4px solid var(--green); display: flex; align-items: center; gap: 12px; animation: toastIn 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-  .toast.purple { border-left-color: var(--blurple); }
-  .toast.orange { border-left-color: var(--orange); }
-  .toast.red { border-left-color: var(--red); }
-  @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-  .toast-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(8,168,71,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
-  .toast.purple .toast-icon { background: rgba(75,63,255,0.1); }
-  .toast.orange .toast-icon { background: rgba(248,106,11,0.12); }
-  .toast.red .toast-icon { background: rgba(222,52,35,0.1); }
-  .toast-body { flex: 1; }
-  .toast-title { font-size: 12px; font-weight: 700; color: var(--dark); }
-  .toast-sub { font-size: 11px; color: var(--g500); margin-top: 2px; }
-
-  /* Selection mode visual feedback */
-  .selection-mode-banner { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); background: var(--blurple); color: var(--white); padding: 8px 18px; border-radius: 6px; font-size: 12px; font-weight: 600; z-index: 700; box-shadow: 0 6px 20px rgba(75,63,255,0.4); display: flex; align-items: center; gap: 10px; animation: dropIn 0.25s ease-out; }
-  @keyframes dropIn { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
-  .selection-mode-banner kbd { font-family: 'DM Mono', monospace; font-size: 10px; padding: 2px 6px; border-radius: 3px; background: rgba(255,255,255,0.2); }
+  /* Selection mode banner */
+  .selection-banner {
+    position: absolute; top: 80px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--mui-primary);
+    color: var(--mui-primary-contrast);
+    padding: 10px 20px;
+    border-radius: var(--r-2);
+    font-size: 0.8125rem; font-weight: 600;
+    z-index: 700;
+    box-shadow: var(--elev-8);
+    display: flex; align-items: center; gap: 10px;
+    animation: dropIn 0.25s ease-out;
+  }
+  @keyframes dropIn {
+    from { opacity: 0; transform: translate(-50%, -10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+  }
+  .selection-banner kbd {
+    font-family: 'DM Mono', monospace; font-size: 0.6875rem;
+    padding: 2px 7px; border-radius: 3px;
+    background: rgba(255,255,255,0.22);
+    text-transform: none;
+  }
   .map-host.selecting #map { cursor: crosshair; }
 
-  /* Custom marker animations */
+  /* Live map markers */
   .live-marker { position: relative; width: 28px; height: 28px; }
-  .live-marker .pulse-ring { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); border-radius: 50%; opacity: 0.7; animation: ringPulse 2s infinite; }
-  @keyframes ringPulse { 0% { width: 0; height: 0; opacity: 0.7; } 100% { width: 60px; height: 60px; opacity: 0; } }
-  .live-marker .core { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--white); box-shadow: 0 2px 8px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: var(--white); font-size: 12px; font-weight: 700; }
+  .live-marker .pulse-ring {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    opacity: 0.7;
+    animation: ringPulse 2s infinite;
+  }
+  @keyframes ringPulse {
+    0% { width: 0; height: 0; opacity: 0.7; }
+    100% { width: 60px; height: 60px; opacity: 0; }
+  }
+  .live-marker .core {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: var(--elev-4);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 12px; font-weight: 700;
+  }
 
-  .scroll-y { overflow-y: auto; }
+  /* Hint card */
+  .hint-card {
+    bottom: 16px; right: calc(16px + 460px + 12px + 38px + 12px);
+    background: rgba(25, 35, 46, 0.94);
+    backdrop-filter: blur(18px);
+    padding: 14px 18px;
+    border-radius: var(--r-2);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: var(--mui-text-on-dark);
+    max-width: 340px;
+    box-shadow: var(--elev-8);
+  }
+  .hint-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.10em;
+    color: #FFFFFF;
+    margin-bottom: 8px;
+  }
+  .hint-list {
+    font-size: 0.8125rem;
+    color: var(--mui-text-on-dark-secondary);
+    line-height: 1.7;
+  }
+  .hint-list kbd {
+    font-family: 'DM Mono', monospace; font-size: 0.6875rem;
+    padding: 1px 6px; border-radius: 3px;
+    background: rgba(255,255,255,0.12);
+    color: #FFFFFF; margin: 0 2px;
+  }
+  .hint-list strong { color: #FFFFFF; }
+
+  /* Linked records */
+  .linked-row {
+    display: grid; grid-template-columns: auto 1fr auto;
+    gap: 12px; align-items: center;
+    padding: 10px 12px;
+    border-radius: var(--r-1);
+    cursor: pointer;
+  }
+  .linked-row:hover { background: var(--mui-action-hover); }
+  .linked-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--mui-bg-default);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .linked-title { font-size: 0.8125rem; font-weight: 600; color: var(--mui-text-primary); }
+  .linked-sub { font-size: 0.6875rem; color: var(--mui-text-secondary); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+  /* Area summary tiles */
+  .area-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .area-tile {
+    padding: 14px 16px;
+    border-radius: var(--r-2);
+    border: 1px solid var(--mui-divider);
+  }
+  .area-tile-num { font-size: 1.5rem; font-weight: 700; line-height: 1.1; }
+  .area-tile-label { font-size: 0.75rem; color: var(--mui-text-secondary); font-weight: 500; margin-top: 4px; }
+
   .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  /* Search results dropdown */
-  .search-results { position: absolute; top: 40px; left: 0; right: 0; background: var(--g900); border: 1px solid #2a3743; border-radius: 6px; max-height: 320px; overflow-y: auto; box-shadow: 0 8px 28px rgba(0,0,0,0.4); z-index: 100; }
-  .search-result { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #232f3a; display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; }
-  .search-result:last-child { border-bottom: none; }
-  .search-result:hover { background: #1a2330; }
-  .search-result-title { font-size: 12px; color: var(--white); font-weight: 600; }
-  .search-result-sub { font-size: 10px; color: #8b9aab; font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .search-result-type { font-size: 9px; color: #8b9aab; font-family: 'DM Mono', monospace; text-transform: uppercase; padding: 2px 6px; background: rgba(255,255,255,0.06); border-radius: 3px; }
-
-  /* Help tooltip */
-  .help-card { position: absolute; bottom: 16px; right: 480px; background: rgba(13,22,32,0.92); backdrop-filter: blur(10px); padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); color: var(--white); max-width: 320px; }
-  .help-title { font-size: 11px; font-weight: 700; color: var(--white); margin-bottom: 6px; font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.6px; }
-  .help-list { font-size: 11px; color: #b6c3d4; line-height: 1.6; }
-  .help-list kbd { font-family: 'DM Mono', monospace; font-size: 10px; padding: 1px 5px; border-radius: 3px; background: rgba(255,255,255,0.1); color: var(--white); margin: 0 2px; }
 </style>
 </head>
 <body>
@@ -250,7 +913,6 @@
 
 // ─────────────────────────────────────────────────────────────────
 // Synthetic data — "City of Riverside Springs" (fictional ~50k pop)
-// Centered on real US Mid-Atlantic coords for a realistic street grid.
 // ─────────────────────────────────────────────────────────────────
 
 const CITY = {
@@ -281,7 +943,6 @@ const randomLatLng = () => [
   CITY.bounds[0][0] + rng() * (CITY.bounds[1][0] - CITY.bounds[0][0]),
   CITY.bounds[0][1] + rng() * (CITY.bounds[1][1] - CITY.bounds[0][1])
 ];
-const randomAddress = () => `${randInt(100, 1899)} ${pick(STREETS)}`;
 
 function minutesAgo(m) { return new Date(Date.now() - m * 60 * 1000).toISOString(); }
 function fmtRelative(iso) {
@@ -300,28 +961,294 @@ function distMeters(a, b) {
   return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
 }
 
-// ─── Active issues (potholes, sidewalk hazards, sign damage, etc.) ───
-const ISSUES = [
-  { id: "ISS-2026-0381", type: "issue", category: "pothole", title: "Pothole cluster — Maple St", address: "812 Maple St (between 5th & 6th)", location: [38.0319, -78.4824], severity: "critical", status: "detected", detectedAt: minutesAgo(14), source: "CYVL", pci: 53, pciTrend: -18, depth_cm: 9.4, area_sqm: 1.26, description: "AI flagged 3 distinct potholes within 60ft. Largest measures 1.4m × 0.9m × 9.4cm deep. PCI dropped from 71 to 53 in 6 weeks. Distress codes: 1H (high-severity pothole), 11M (alligator cracking). Active permit nearby (PRM-2026-1138 ROW Excavation, Patriot Utility Co) — likely cost-recovery candidate.", linkedPermit: "PRM-2026-1138", parcelId: "06-14-088" },
-  { id: "ISS-2026-0382", type: "issue", category: "pothole", title: "Pothole — Hawthorne & 3rd", address: "1142 Hawthorne Ave", location: [38.024, -78.494], severity: "high", status: "detected", detectedAt: minutesAgo(38), source: "Citizen 311", pci: 47, pciTrend: -8, depth_cm: 6.2, description: "Citizen reported via mobile app. Photo shows ~30cm pothole in right lane. CYVL last-pass imagery (3 weeks ago) showed early-stage cracking. Recommend dispatch.", parcelId: "11-42-021" },
-  { id: "ISS-2026-0383", type: "issue", category: "pothole", title: "Pothole — Washington & Court", address: "44 Washington Blvd", location: [38.0305, -78.479], severity: "high", status: "detected", detectedAt: minutesAgo(67), source: "CYVL", pci: 51, pciTrend: -11, depth_cm: 7.8, description: "Two adjacent potholes detected on overnight survey. Heavy commercial traffic corridor.", parcelId: "08-01-002" },
-  { id: "ISS-2026-0384", type: "issue", category: "sidewalk", title: "Sidewalk trip hazard — 3.2cm vertical", address: "1844 Madison Pl", location: [38.0376, -78.464], severity: "high", status: "detected", detectedAt: minutesAgo(94), source: "CYVL", description: "LiDAR-measured vertical displacement of 3.2cm exceeds ADA 1.3cm tolerance. Tree root heave likely cause. Adjacent property owner may be responsible per ordinance §22-104.", parcelId: "13-04-188" },
-  { id: "ISS-2026-0385", type: "issue", category: "ada", title: "ADA ramp non-compliant — slope 9.4°", address: "529 Maple St", location: [38.0316, -78.482], severity: "high", status: "detected", detectedAt: minutesAgo(122), source: "CYVL", description: "LiDAR-measured slope 9.4° exceeds 8.3° maximum. Detectable warning surface present. Landing dimensions compliant. Federal ADA Title II exposure.", parcelId: "06-14-077" },
-  { id: "ISS-2026-0386", type: "issue", category: "sign", title: "Stop sign damaged — visibility impaired", address: "Cherry Ln & Park Ave", location: [38.041, -78.488], severity: "medium", status: "detected", detectedAt: minutesAgo(180), source: "CYVL", description: "MUTCD R1-1 sign showing visible damage and graffiti. Reflectivity test failed. Replace within 14 days per maintenance standard." },
-  { id: "ISS-2026-0387", type: "issue", category: "code", title: "Unpermitted construction visible from ROW", address: "813 Sycamore Rd", location: [38.041, -78.461], severity: "high", status: "detected", detectedAt: minutesAgo(220), source: "CYVL", description: "Structure addition visible in 360° imagery. No active building permit on file. Confidence 94%. Auto-routed to code enforcement.", parcelId: "11-08-104" },
-  { id: "ISS-2026-0388", type: "issue", category: "drainage", title: "Catch basin near capacity — rain forecasted", address: "1100 Riverside Dr", location: [38.018, -78.476], severity: "medium", status: "detected", detectedAt: minutesAgo(28), source: "IoT Sensor", description: "Smart catch basin CB-4407 reporting 78% capacity. Rain event predicted within 36 hours per NWS. Recommend proactive cleanout." },
-  { id: "ISS-2026-0389", type: "issue", category: "tree", title: "Hazard-rated tree — visible decay", address: "Magnolia Dr median", location: [38.027, -78.488], severity: "medium", status: "detected", detectedAt: minutesAgo(310), source: "CYVL", description: "Mature oak with visible structural decay and crown dieback. Hazard rating: high. Adjacent to playground. Recommend arborist assessment." },
-  { id: "ISS-2026-0390", type: "issue", category: "graffiti", title: "Graffiti on public infrastructure", address: "Lincoln Way underpass", location: [38.022, -78.502], severity: "low", status: "detected", detectedAt: minutesAgo(145), source: "CYVL", description: "Graffiti detected on bridge abutment. New since last survey (12 days ago)." }
+// ─────────────────────────────────────────────────────────────────
+// Anomalies — every issue is a detected anomaly with full provenance
+// ─────────────────────────────────────────────────────────────────
+const ANOMALIES = [
+  {
+    id: "ANOM-2026-0381", type: "anomaly", category: "pothole",
+    title: "Pavement degradation anomaly — Maple St",
+    address: "812 Maple St (between 5th & 6th)",
+    location: [38.0319, -78.4824],
+    severity: "critical", status: "detected",
+    detectedAt: minutesAgo(14),
+    source: "AI Vision + LiDAR",
+    description: "Pavement condition score dropped from 71 to 53 in 6 weeks, far exceeding the typical decay rate for this segment class. Three distinct potholes detected within 60 feet, largest at 1.4m × 0.9m × 9.4cm depth. Active right-of-way permit (PRM-2026-1138, Patriot Utility Co) at the same location is the likely cost-recovery target.",
+    pci: 53, pciTrend: -18, depth_cm: 9.4, area_sqm: 1.26,
+    linkedPermit: "PRM-2026-1138", parcelId: "06-14-088",
+    anomaly: {
+      method: "Statistical change-point",
+      confidence: 0.97,
+      baseline: "71", baselineLabel: "Expected PCI",
+      observed: "53", observedLabel: "Observed PCI",
+      deviation: "3.2σ", deviationLabel: "Below trajectory",
+      rule: "PCI delta > 15 pts in 60d window AND distress severity escalation (1H, 11M)",
+      sparkline: [71, 70, 68, 67, 66, 64, 62, 60, 58, 55, 53],
+      sparklineExpected: [71, 70.5, 70, 69.5, 69, 68.5, 68, 67.5, 67, 66.5, 66]
+    },
+    recommendation: "Dispatch with cost recovery referenced to the linked permit. Median resolution time for this anomaly type with linked-permit recovery: 6.2 days."
+  },
+  {
+    id: "ANOM-2026-0382", type: "anomaly", category: "pothole",
+    title: "New surface defect — Hawthorne & 3rd",
+    address: "1142 Hawthorne Ave",
+    location: [38.024, -78.494],
+    severity: "high", status: "detected",
+    detectedAt: minutesAgo(38),
+    source: "Citizen 311 + AI Vision",
+    description: "Citizen-reported pothole corroborated by AI vision review of last sensor pass (3 weeks ago) which showed early-stage cracking. Heavy commercial traffic corridor.",
+    pci: 47, pciTrend: -8, depth_cm: 6.2, parcelId: "11-42-021",
+    anomaly: {
+      method: "Multi-source corroboration",
+      confidence: 0.93,
+      baseline: "55", baselineLabel: "Expected PCI",
+      observed: "47", observedLabel: "Observed PCI",
+      deviation: "2.1σ", deviationLabel: "Below trajectory",
+      rule: "Citizen report within 100ft of AI-flagged early-stage distress within 30d",
+      sparkline: [62, 60, 58, 56, 55, 54, 53, 52, 50, 48, 47],
+      sparklineExpected: [62, 61, 60, 59, 58, 57, 56, 55, 54, 53, 52]
+    },
+    recommendation: "Standard dispatch. No linked permit."
+  },
+  {
+    id: "ANOM-2026-0383", type: "anomaly", category: "pothole",
+    title: "Surface defect cluster — Washington & Court",
+    address: "44 Washington Blvd",
+    location: [38.0305, -78.479],
+    severity: "high", status: "detected",
+    detectedAt: minutesAgo(67),
+    source: "AI Vision",
+    description: "Two adjacent potholes detected on overnight sensor pass. Heavy commercial traffic corridor. Both potholes are within the standard pavement design tolerance window for this segment but the rate of deterioration exceeds expectation.",
+    pci: 51, pciTrend: -11, depth_cm: 7.8, parcelId: "08-01-002",
+    anomaly: {
+      method: "Predictive deterioration model",
+      confidence: 0.91,
+      baseline: "62", baselineLabel: "Expected PCI",
+      observed: "51", observedLabel: "Observed PCI",
+      deviation: "2.7σ", deviationLabel: "Below trajectory",
+      rule: "Deterioration rate > 95th percentile for segment class (commercial arterial)",
+      sparkline: [70, 68, 66, 64, 63, 62, 60, 58, 55, 53, 51],
+      sparklineExpected: [70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60]
+    },
+    recommendation: "Consider segment-level treatment rather than spot repair. Cost-effective window closing in ~14 months."
+  },
+  {
+    id: "ANOM-2026-0384", type: "anomaly", category: "sidewalk",
+    title: "Sidewalk vertical displacement anomaly",
+    address: "1844 Madison Pl",
+    location: [38.0376, -78.464],
+    severity: "high", status: "detected",
+    detectedAt: minutesAgo(94),
+    source: "LiDAR",
+    description: "LiDAR-measured 3.2cm vertical displacement is new since last survey. Tree root heave is the likely cause. Adjacent property owner may be responsible per ordinance §22-104.",
+    parcelId: "13-04-188",
+    anomaly: {
+      method: "Threshold breach (LiDAR)",
+      confidence: 0.99,
+      baseline: "≤ 1.3cm", baselineLabel: "ADA tolerance",
+      observed: "3.2cm", observedLabel: "Measured",
+      deviation: "+1.9cm", deviationLabel: "Over limit",
+      rule: "Vertical displacement > 1.3cm (ADA §302.3) AND new since prior survey",
+      sparkline: [0.4, 0.5, 0.5, 0.6, 0.8, 1.0, 1.2, 1.4, 1.8, 2.5, 3.2],
+      sparklineExpected: [0.4, 0.5, 0.5, 0.6, 0.6, 0.7, 0.7, 0.8, 0.8, 0.9, 1.0]
+    },
+    recommendation: "Notice property owner under §22-104. ADA Title II exposure if not remediated within 30 days."
+  },
+  {
+    id: "ANOM-2026-0385", type: "anomaly", category: "ada",
+    title: "ADA ramp non-compliant slope",
+    address: "529 Maple St",
+    location: [38.0316, -78.482],
+    severity: "high", status: "detected",
+    detectedAt: minutesAgo(122),
+    source: "LiDAR",
+    description: "LiDAR-measured slope of 9.4° exceeds 8.3° maximum. Detectable warning surface present. Landing dimensions compliant. Federal ADA Title II exposure.",
+    parcelId: "06-14-077",
+    anomaly: {
+      method: "Threshold breach (LiDAR)",
+      confidence: 0.98,
+      baseline: "≤ 8.3°", baselineLabel: "ADA limit",
+      observed: "9.4°", observedLabel: "Measured slope",
+      deviation: "+1.1°", deviationLabel: "Over limit",
+      rule: "Slope > 8.3° (ADA §405.2) AND ramp connects to public ROW",
+      sparkline: [9.4, 9.4, 9.4, 9.4, 9.4, 9.4, 9.4, 9.4, 9.4, 9.4, 9.4],
+      sparklineExpected: [8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3, 8.3]
+    },
+    recommendation: "Bundle into ADA remediation program. Title II grant eligibility likely."
+  },
+  {
+    id: "ANOM-2026-0386", type: "anomaly", category: "sign",
+    title: "Stop sign reflectivity anomaly",
+    address: "Cherry Ln & Park Ave",
+    location: [38.041, -78.488],
+    severity: "medium", status: "detected",
+    detectedAt: minutesAgo(180),
+    source: "AI Vision",
+    description: "Stop sign showing visible damage and graffiti. Retroreflectivity score below MUTCD minimum. Replace within 14 days per maintenance standard.",
+    anomaly: {
+      method: "Vision classification",
+      confidence: 0.94,
+      baseline: "100", baselineLabel: "Reflectivity",
+      observed: "62", observedLabel: "Reflectivity",
+      deviation: "-38", deviationLabel: "Below MUTCD",
+      rule: "Retroreflectivity score < FHWA minimum AND visible damage classifier triggered",
+      sparkline: [98, 97, 95, 94, 92, 88, 84, 78, 72, 68, 62],
+      sparklineExpected: [98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88]
+    },
+    recommendation: "Standard sign replacement, materials in stock."
+  },
+  {
+    id: "ANOM-2026-0387", type: "anomaly", category: "code",
+    title: "Unpermitted construction visible from ROW",
+    address: "813 Sycamore Rd",
+    location: [38.041, -78.461],
+    severity: "high", status: "detected",
+    detectedAt: minutesAgo(220),
+    source: "AI Vision",
+    description: "Structure addition visible in 360° street imagery. No active building permit on file matching this work. Auto-routed to code enforcement.",
+    parcelId: "11-08-104",
+    anomaly: {
+      method: "Pattern (image diff + permit join)",
+      confidence: 0.94,
+      baseline: "0", baselineLabel: "Active permits",
+      observed: "1", observedLabel: "Structure delta",
+      deviation: "Mismatch", deviationLabel: "Permit absent",
+      rule: "Structure footprint change > 80 sqft AND no active building permit on parcel",
+      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+      sparklineExpected: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    recommendation: "Issue notice of violation under §18-204. Stop-work order if construction continues."
+  },
+  {
+    id: "ANOM-2026-0388", type: "anomaly", category: "drainage",
+    title: "Catch basin capacity anomaly with rain forecast",
+    address: "1100 Riverside Dr",
+    location: [38.018, -78.476],
+    severity: "medium", status: "detected",
+    detectedAt: minutesAgo(28),
+    source: "IoT Sensor",
+    description: "Smart catch basin reporting 78% capacity, well above the 12-month seasonal baseline of 23%. National Weather Service predicts rain event within 36 hours.",
+    anomaly: {
+      method: "Behavioral pattern + forecast join",
+      confidence: 0.96,
+      baseline: "23%", baselineLabel: "Typical",
+      observed: "78%", observedLabel: "Now",
+      deviation: "+55pp", deviationLabel: "Above norm",
+      rule: "Capacity > 75% AND rain forecast within 48h",
+      sparkline: [22, 24, 23, 25, 28, 35, 42, 51, 62, 70, 78],
+      sparklineExpected: [22, 23, 23, 24, 25, 25, 26, 26, 27, 27, 28]
+    },
+    recommendation: "Pre-storm cleanout. Sensor will auto-confirm clearance."
+  },
+  {
+    id: "ANOM-2026-0389", type: "anomaly", category: "tree",
+    title: "Tree health degradation — adjacent to playground",
+    address: "Magnolia Dr median",
+    location: [38.027, -78.488],
+    severity: "medium", status: "detected",
+    detectedAt: minutesAgo(310),
+    source: "AI Vision",
+    description: "Mature oak with visible structural decay and crown dieback detected. Hazard rating: high. Adjacent to public playground. Recommend arborist assessment.",
+    anomaly: {
+      method: "Vision classification (tree health)",
+      confidence: 0.89,
+      baseline: "Healthy", baselineLabel: "Last assessment",
+      observed: "High hazard", observedLabel: "Now",
+      deviation: "Δ Critical", deviationLabel: "Health change",
+      rule: "Crown dieback > 35% AND structural defect classifier triggered",
+      sparkline: [95, 94, 93, 90, 88, 84, 78, 72, 65, 58, 52],
+      sparklineExpected: [95, 94, 94, 93, 93, 92, 92, 91, 91, 90, 90]
+    },
+    recommendation: "Arborist within 7 days. Public liability exposure due to playground proximity."
+  },
+  {
+    id: "ANOM-2026-0390", type: "anomaly", category: "graffiti",
+    title: "New graffiti on public infrastructure",
+    address: "Lincoln Way underpass",
+    location: [38.022, -78.502],
+    severity: "low", status: "detected",
+    detectedAt: minutesAgo(145),
+    source: "AI Vision",
+    description: "New graffiti detected on bridge abutment. Did not exist in last sensor pass 12 days ago.",
+    anomaly: {
+      method: "Image diff + classification",
+      confidence: 0.92,
+      baseline: "Clean", baselineLabel: "12 days ago",
+      observed: "Tagged", observedLabel: "Now",
+      deviation: "Δ New", deviationLabel: "Surface change",
+      rule: "Graffiti classifier on previously-clean surface",
+      sparkline: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+      sparklineExpected: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    },
+    recommendation: "Standard 48-hour abatement SLA per graffiti policy."
+  }
 ];
 
-// ─── Active incidents (accidents, water main breaks, downed trees) ───
+// ─── Live incidents ───
 const INCIDENTS = [
-  { id: "INC-2026-0341", type: "incident", category: "accident", title: "Two-vehicle collision — injuries reported", address: "Riverside Dr & 5th", location: [38.025, -78.481], severity: "critical", status: "responding", reportedAt: minutesAgo(8), units: ["Patrol #8", "EMS #2", "PW Truck #23"], lanes_blocked: 2, description: "Two-vehicle collision at signalized intersection. Minor injuries reported. Units on scene. Recommend traffic management deployment and signal-timing review (3rd accident at this location in 90 days)." },
-  { id: "INC-2026-0342", type: "incident", category: "water_main", title: "Water main break — flooding intersection", address: "Hawthorne & 3rd", location: [38.034, -78.469], severity: "critical", status: "responding", reportedAt: minutesAgo(22), units: ["PW Truck #47", "Water Crew A"], lanes_blocked: 4, description: "8-inch water main break flooding the intersection. Water Crew A on scene with valve crew. Affecting ~340 customers. Estimated 4-hour repair. Boil-water advisory likely required." },
-  { id: "INC-2026-0343", type: "incident", category: "tree_down", title: "Downed tree blocking westbound lane", address: "Magnolia Dr & Belmont", location: [38.041, -78.486], severity: "medium", status: "dispatched", reportedAt: minutesAgo(40), units: ["PW Truck #18"], lanes_blocked: 1, description: "Large oak down across westbound lane. PW Truck #18 dispatched with chainsaw crew. ETA 12 min. No injuries." }
+  {
+    id: "INC-2026-0341", type: "incident", category: "accident",
+    title: "Two-vehicle collision — injuries reported",
+    address: "Riverside Dr & 5th",
+    location: [38.025, -78.481],
+    severity: "critical", status: "responding",
+    reportedAt: minutesAgo(8),
+    units: ["Patrol #8", "EMS #2", "PW Truck #23"],
+    lanes_blocked: 2,
+    description: "Two-vehicle collision at signalized intersection. Minor injuries reported. Units on scene. Pulse flagged this as the third accident at this intersection in 90 days — well above the city-wide baseline of 0.4/quarter for similar intersections.",
+    anomaly: {
+      method: "Behavioral pattern + spatial cluster",
+      confidence: 0.99,
+      baseline: "0.4 / quarter", baselineLabel: "Expected rate",
+      observed: "3 / 90 days", observedLabel: "Observed",
+      deviation: "7.5×", deviationLabel: "Above norm",
+      rule: "Telematics impact + dashcam event + dispatch confirmation. Spatial cluster: 3+ accidents in 90d at single intersection."
+    },
+    recommendation: "Dispatch + traffic control. Engineering review on signal timing — 3rd accident here in 90 days is statistically significant."
+  },
+  {
+    id: "INC-2026-0342", type: "incident", category: "water_main",
+    title: "Water main break — flooding intersection",
+    address: "Hawthorne & 3rd",
+    location: [38.034, -78.469],
+    severity: "critical", status: "responding",
+    reportedAt: minutesAgo(22),
+    units: ["PW Truck #47", "Water Crew A"],
+    lanes_blocked: 4,
+    description: "Pressure dropped 47% across three downstream sensors in under 3 minutes — pattern signature of a water main rupture. 8-inch main confirmed. ~340 customers affected. 4-hour estimated repair.",
+    anomaly: {
+      method: "Pattern signature (multi-sensor)",
+      confidence: 0.98,
+      baseline: "65 PSI", baselineLabel: "Normal pressure",
+      observed: "34 PSI", observedLabel: "Now",
+      deviation: "-47%", deviationLabel: "In 3 min",
+      rule: "Pressure drop > 30% across ≥3 sensors within 5 min window"
+    },
+    recommendation: "Boil-water advisory likely required. 340 customer notifications staged."
+  },
+  {
+    id: "INC-2026-0343", type: "incident", category: "tree_down",
+    title: "Downed tree blocking westbound lane",
+    address: "Magnolia Dr & Belmont",
+    location: [38.041, -78.486],
+    severity: "medium", status: "dispatched",
+    reportedAt: minutesAgo(40),
+    units: ["PW Truck #18"],
+    lanes_blocked: 1,
+    description: "Citizen-reported. Cross-referenced to anomaly ANOM-2026-0389 (high-hazard tree on adjacent block) — same species, similar age class.",
+    anomaly: {
+      method: "Citizen report + spatial correlation",
+      confidence: 0.95,
+      baseline: "0 obstructions", baselineLabel: "Lane state",
+      observed: "Blocked", observedLabel: "Now",
+      deviation: "Δ Active", deviationLabel: "Obstruction",
+      rule: "Lane obstruction reported AND correlation with prior tree-health anomaly within 0.5 mi"
+    },
+    recommendation: "Tree crew dispatched. Validate this anomaly against ANOM-2026-0389 to consider neighborhood-wide tree assessment."
+  }
 ];
 
-// ─── Fleet vehicles (live telematics) ───
+// ─── Fleet vehicles ───
 const VEHICLE_TYPES = [
   { class: "Refuse Truck", icon: "🚛", color: "#08A847" },
   { class: "Patrol", icon: "🚔", color: "#0095DA" },
@@ -336,9 +1263,7 @@ for (let i = 0; i < 12; i++) {
     id: `EQP-${5500 + i}`,
     type: "vehicle",
     name: `${t.class} #${randInt(10, 99)}`,
-    class: t.class,
-    icon: t.icon,
-    color: t.color,
+    class: t.class, icon: t.icon, color: t.color,
     location: randomLatLng(),
     heading: randInt(0, 360),
     speed: randInt(0, 38),
@@ -351,7 +1276,6 @@ for (let i = 0; i < 12; i++) {
     driver: pick(["J. Martinez", "T. Williams", "R. Chen", "M. Rodriguez", "K. Patel", "D. Johnson"])
   });
 }
-// Pin specific vehicles to incidents for narrative
 VEHICLES[0] = { ...VEHICLES[0], id: "EQP-5512", name: "PW Truck #47", class: "Public Works", icon: "🚛", color: "#F86A0B", location: [38.034, -78.469], status: "On call: INC-2026-0342", yearMakeModel: "2020 Ford F-450", driver: "M. Rodriguez", speed: 0, fault: "P0420 Catalyst efficiency" };
 VEHICLES[1] = { ...VEHICLES[1], id: "EQP-5523", name: "Patrol #8", class: "Patrol", icon: "🚔", color: "#0095DA", location: [38.025, -78.481], status: "On call: INC-2026-0341", yearMakeModel: "2022 Ford Explorer", driver: "Officer T. Williams", speed: 0 };
 VEHICLES[2] = { ...VEHICLES[2], id: "EQP-5530", name: "EMS #2", class: "EMS", icon: "🚑", color: "#DE3423", location: [38.0258, -78.4815], status: "On call: INC-2026-0341", yearMakeModel: "2021 Ford E-450", driver: "Paramedic R. Chen", speed: 0 };
@@ -364,21 +1288,19 @@ const PERMITS = [
   { id: "PRM-2026-1163", type: "permit", category: "Sign", title: "New monument sign (illuminated)", address: "1900 Highland Ave", location: [38.045, -78.488], status: "Issued", issued: "2026-04-30", expires: "2026-07-30", contractor: "Highland Signs Inc", parcelId: "13-22-009" }
 ];
 
-// All map objects in one collection for search/lasso
-const ALL_MAP_OBJECTS = [...ISSUES, ...INCIDENTS, ...VEHICLES, ...PERMITS];
+const ALL_MAP_OBJECTS = [...ANOMALIES, ...INCIDENTS, ...VEHICLES, ...PERMITS];
 
-// ─── Live event stream — for ticker ───
 function buildEvents() {
   const events = [];
-  ISSUES.forEach(i => events.push({ id: i.id, time: i.detectedAt, source: i.source, severity: i.severity, title: i.title, type: "issue", obj: i }));
-  INCIDENTS.forEach(i => events.push({ id: i.id, time: i.reportedAt, source: "Dispatch", severity: i.severity, title: i.title, type: "incident", obj: i }));
+  ANOMALIES.forEach(a => events.push({ id: a.id, time: a.detectedAt, source: a.source, severity: a.severity, title: a.title, type: "anomaly", obj: a, confidence: a.anomaly?.confidence }));
+  INCIDENTS.forEach(i => events.push({ id: i.id, time: i.reportedAt, source: "Dispatch", severity: i.severity, title: i.title, type: "incident", obj: i, confidence: i.anomaly?.confidence }));
   return events.sort((a, b) => new Date(b.time) - new Date(a.time));
 }
 
 // ─────────────────────────────────────────────────────────────────
-// OpenGov Pulse logo (inline SVG, white wordmark)
+// OpenGov logo (inline)
 // ─────────────────────────────────────────────────────────────────
-const LogoReverse = () => (
+const Logo = () => (
   <svg height="20" viewBox="0 0 1289.5 247.4" xmlns="http://www.w3.org/2000/svg" style={{height:'20px', width:'auto'}}>
     <path fill="#4B3FFF" d="M1279.4,0h-225.1c-10.3,0-13.9,13.6-5,18.7l107.5,62.1v124.2c0,10.3,13.6,13.9,18.7,5l112.6-195c3.9-6.7-1-15.1-8.7-15.1Z"/>
     <g fill="#fff">
@@ -393,34 +1315,34 @@ const LogoReverse = () => (
   </svg>
 );
 
-// Inline icons
-const Icon = ({ name, size=16, color="currentColor", strokeWidth=1.8 }) => {
+const Icon = ({ name, size=18, color="currentColor", strokeWidth=2 }) => {
   const props = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: color, strokeWidth, strokeLinecap: "round", strokeLinejoin: "round" };
   switch(name) {
     case "search": return <svg {...props}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>;
     case "x": return <svg {...props}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
     case "plus": return <svg {...props}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
     case "minus": return <svg {...props}><line x1="5" y1="12" x2="19" y2="12"/></svg>;
-    case "circle": return <svg {...props}><circle cx="12" cy="12" r="9"/></svg>;
     case "lasso": return <svg {...props}><path d="M7 22a5 5 0 0 1-2-4"/><path d="M3.3 14A6.8 6.8 0 0 1 2 10a8 8 0 0 1 16 0c0 1.5-.5 2.7-1.5 4l-2 2.5A8 8 0 0 1 8 21"/><circle cx="12" cy="10" r="3"/></svg>;
     case "arrow-right": return <svg {...props}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
     case "navigation": return <svg {...props}><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>;
-    case "info": return <svg {...props}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>;
+    case "zap": return <svg {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+    case "alert": return <svg {...props}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>;
+    case "trending-down": return <svg {...props}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>;
     default: return <svg {...props}><circle cx="12" cy="12" r="9"/></svg>;
   }
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Action sets — what you can DO when you select something
+// Action sets
 // ─────────────────────────────────────────────────────────────────
 const ACTIONS_FOR = {
   pothole: [
     { key: "dispatch", icon: "🛠️", title: "Dispatch repair crew", sub: "Creates EAM work order, routes to nearest crew", primary: true,
-      toast: { title: "Work order WO-2026-3318 created", sub: "Crew B dispatched · ETA 14 min · Cost recovery flagged to permit" } },
+      toast: { title: "Work order WO-2026-3318 created", sub: "Crew B dispatched · ETA 14 min · cost recovery flagged to permit" } },
     { key: "case", icon: "📋", title: "Open code case", sub: "Cite responsible party from linked permit",
-      toast: { title: "Code case CC-2026-0481 opened", sub: "Cited to Patriot Utility Co · §24-318 ROW restoration · evidence attached" } },
-    { key: "resurvey", icon: "🛰️", title: "Schedule re-survey", sub: "Next CYVL pass within 5 days",
-      toast: { title: "Re-survey scheduled", sub: "CYVL-VAN-12 · estimated 2026-05-14 · auto-verify on completion" } },
+      toast: { title: "Code case CC-2026-0481 opened", sub: "Cited to Patriot Utility Co · §24-318 ROW restoration" } },
+    { key: "resurvey", icon: "🛰️", title: "Schedule re-survey", sub: "Next sensor pass within 5 days",
+      toast: { title: "Re-survey scheduled", sub: "Survey Unit 12 · estimated 2026-05-14 · auto-verify on completion" } },
     { key: "notify", icon: "🔔", title: "Notify residents (250 ft)", sub: "Send proactive alert to 12 nearby properties",
       toast: { title: "12 residents notified", sub: "SMS + email sent · 'Pavement repair scheduled in your area'" } }
   ],
@@ -438,17 +1360,17 @@ const ACTIONS_FOR = {
     { key: "case", icon: "📋", title: "Open compliance case", sub: "Open PLC case for tracking",
       toast: { title: "Compliance case opened", sub: "ADA Title II evidence chain initiated · LiDAR data preserved" } },
     { key: "report", icon: "📊", title: "Generate compliance report", sub: "FOIA-grade evidence package",
-      toast: { title: "Report generated", sub: "Full evidence chain · CYVL LiDAR · hash-verified · ready for legal review" } }
+      toast: { title: "Report generated", sub: "Full evidence chain · LiDAR · hash-verified · ready for legal review" } }
   ],
   sign: [
     { key: "dispatch", icon: "🛠️", title: "Replace sign", sub: "Creates EAM work order, MUTCD-compliant replacement", primary: true,
       toast: { title: "Sign replacement WO-2026-3320 created", sub: "Sign shop notified · materials in stock · 24h SLA" } },
     { key: "inspect", icon: "🔍", title: "Inspect adjacent signs", sub: "Auto-trigger 200ft radius inspection",
-      toast: { title: "5 adjacent signs queued for inspection", sub: "Inspector route updated · CYVL data attached" } }
+      toast: { title: "5 adjacent signs queued for inspection", sub: "Inspector route updated · sensor data attached" } }
   ],
   code: [
     { key: "violation", icon: "📨", title: "Issue notice of violation", sub: "Cites property owner, starts compliance clock", primary: true,
-      toast: { title: "NOV issued to property owner", sub: "30 days to obtain permit · CYVL evidence attached" } },
+      toast: { title: "NOV issued to property owner", sub: "30 days to obtain permit · evidence attached" } },
     { key: "inspect", icon: "🔍", title: "Schedule inspection", sub: "Field verify before action",
       toast: { title: "Inspection scheduled", sub: "Inspector D. Park · 2026-05-12 morning · evidence package preloaded" } },
     { key: "stop", icon: "🛑", title: "Issue stop-work order", sub: "Halts unpermitted activity", danger: true,
@@ -458,7 +1380,7 @@ const ACTIONS_FOR = {
     { key: "dispatch", icon: "🛠️", title: "Dispatch cleanout crew", sub: "Pre-storm proactive maintenance", primary: true,
       toast: { title: "Cleanout crew dispatched", sub: "Truck #14 · ETA 45 min · sensor will auto-confirm clearance" } },
     { key: "monitor", icon: "👁️", title: "Increase monitoring frequency", sub: "Sensor poll every 5 min until rain event",
-      toast: { title: "Monitoring increased", sub: "Sensor CB-4407 polling every 5 min · alert at 90%" } }
+      toast: { title: "Monitoring increased", sub: "Sensor polling every 5 min · alert at 90%" } }
   ],
   tree: [
     { key: "arborist", icon: "🌳", title: "Schedule arborist assessment", sub: "Risk evaluation by certified arborist", primary: true,
@@ -479,7 +1401,7 @@ const ACTIONS_FOR = {
       toast: { title: "Lanes closed via traffic alert", sub: "Waze + 511 + city app updated · detour route published" } },
     { key: "report", icon: "📋", title: "File incident report", sub: "Pre-fills from telematics + dispatch data",
       toast: { title: "Incident report draft created", sub: "Pre-populated from dashcam, telematics, and dispatch logs" } },
-    { key: "review", icon: "🔬", title: "Flag for safety review", sub: "3rd accident here in 90 days",
+    { key: "review", icon: "🔬", title: "Trigger safety review", sub: "3rd accident here in 90 days",
       toast: { title: "Safety review triggered", sub: "Engineering & Public Safety notified · signal timing study scheduled" } }
   ],
   water_main: [
@@ -507,41 +1429,39 @@ const ACTIONS_FOR = {
       toast: { title: "Route history loaded", sub: "47 events tracked · 12% idle · 1 fault event" } }
   ],
   permit: [
-    { key: "verify", icon: "✅", title: "Verify closeout via CYVL", sub: "Trigger re-scan of work site", primary: true,
-      toast: { title: "CYVL verification triggered", sub: "Next survey pass · auto-pass/fail per restoration spec" } },
+    { key: "verify", icon: "✅", title: "Verify closeout via re-scan", sub: "Trigger sensor re-scan of work site", primary: true,
+      toast: { title: "Verification triggered", sub: "Next survey pass · auto-pass/fail per restoration spec" } },
     { key: "remind", icon: "📨", title: "Send closeout reminder", sub: "Email + portal notification to contractor",
       toast: { title: "Reminder sent", sub: "Contractor notified · 7-day final notice clock started" } },
     { key: "bond", icon: "💰", title: "Initiate bond forfeiture", sub: "$1,500 bond on file", danger: true,
       toast: { title: "Bond forfeiture initiated", sub: "Finance notified · contractor's surety company contacted · evidence attached" } }
   ],
   area: [
-    { key: "resurvey", icon: "🛰️", title: "Schedule CYVL re-survey", sub: "Priority survey of selected area", primary: true,
-      toast: { title: "Priority re-survey scheduled", sub: "CYVL-VAN-12 · within 48h · all distress + signs + ramps · auto-import on completion" } },
-    { key: "bulk_dispatch", icon: "🛠️", title: "Bulk dispatch crews", sub: "One mobilization for all issues in area",
-      toast: { title: "Bulk dispatch plan generated", sub: "5 issues · 2 crews · single mobilization · est. $9,400 · ready for approval" } },
+    { key: "resurvey", icon: "🛰️", title: "Schedule priority sensor sweep", sub: "Re-scan all conditions in this area", primary: true,
+      toast: { title: "Priority sensor sweep scheduled", sub: "Survey Unit 12 · within 48h · all distress, signs, ramps · auto-import on completion" } },
+    { key: "bulk_dispatch", icon: "🛠️", title: "Bulk dispatch crews", sub: "One mobilization for all anomalies in area",
+      toast: { title: "Bulk dispatch plan generated", sub: "5 anomalies · 2 crews · single mobilization · est. $9,400 · ready for approval" } },
     { key: "notify", icon: "🔔", title: "Notify all residents in area", sub: "Proactive area-wide alert",
       toast: { title: "Area notification sent", sub: "Residents alerted · scheduled work timeline + alternate routes included" } },
-    { key: "report", icon: "📊", title: "Generate area report", sub: "All conditions + open work + capital need",
+    { key: "report", icon: "📊", title: "Generate area report", sub: "All anomalies + open work + capital need",
       toast: { title: "Area report generated", sub: "Full inventory · capital forecast · ADA compliance · ready to share" } },
-    { key: "estimate", icon: "💰", title: "Cost estimate for full remediation", sub: "All open issues + predicted",
-      toast: { title: "Cost estimate generated", sub: "$84,200 to remediate all open issues · $137K to bring entire area to good condition" } },
+    { key: "estimate", icon: "💰", title: "Cost estimate for full remediation", sub: "All open anomalies + predicted",
+      toast: { title: "Cost estimate generated", sub: "$84,200 to remediate all open anomalies · $137K to bring entire area to good condition" } },
     { key: "project", icon: "📁", title: "Create capital project", sub: "Roll into FY27 capital plan",
       toast: { title: "Capital project drafted", sub: "Auto-scoped from area conditions · ready for budget workshop" } }
   ]
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Top bar
+// AppBar
 // ─────────────────────────────────────────────────────────────────
-const TopBar = ({ events, onSearch }) => {
+const AppBar = ({ events, onSearch }) => {
   const [query, setQuery] = React.useState("");
   const [showResults, setShowResults] = React.useState(false);
   const wrapRef = React.useRef(null);
 
   React.useEffect(() => {
-    const handler = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowResults(false);
-    };
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowResults(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -552,41 +1472,41 @@ const TopBar = ({ events, onSearch }) => {
   }).slice(0, 8) : [];
 
   return (
-    <div className="topbar">
-      <div className="topbar-left">
-        <LogoReverse />
-        <span className="topbar-product">Pulse</span>
-        <div className="topbar-divider"></div>
-        <div className="topbar-city">
-          <Icon name="navigation" size={13} color="#5069FF"/>
+    <div className="appbar">
+      <div className="appbar-left">
+        <Logo />
+        <span className="appbar-product">Pulse</span>
+        <div className="appbar-divider"></div>
+        <div className="appbar-context">
+          <Icon name="navigation" size={14} color="#5069FF"/>
           <div>
-            <div className="topbar-city-name">{CITY.name}</div>
-            <div className="topbar-city-meta">{CITY.population.toLocaleString()} pop · {CITY.laneMiles} ln-mi</div>
+            <div className="name">{CITY.name}</div>
+            <div className="meta">{CITY.population.toLocaleString()} pop · {CITY.laneMiles} ln-mi</div>
           </div>
         </div>
-        <div className="topbar-live">
+        <div className="engine-status">
           <span className="live-dot"></span>
-          LIVE · {events.length} events · last 2m
+          <span>Detection engine · {events.length} anomalies / 24h</span>
         </div>
       </div>
-      <div className="topbar-right">
-        <div className="topbar-search" ref={wrapRef} style={{position:'relative'}}>
-          <Icon name="search" size={13} color="#8b9aab"/>
+      <div className="appbar-right">
+        <div className="appbar-search" ref={wrapRef} style={{position:'relative'}}>
+          <Icon name="search" size={14} color="rgba(255,255,255,0.72)"/>
           <input
             value={query}
             onChange={e => { setQuery(e.target.value); setShowResults(true); }}
             onFocus={() => setShowResults(true)}
-            placeholder="Search assets, incidents, vehicles, addresses..."
+            placeholder="Search anomalies, incidents, vehicles, addresses..."
           />
           <kbd>⌘K</kbd>
           {showResults && results.length > 0 && (
             <div className="search-results">
               {results.map(r => (
                 <div key={r.id} className="search-result" onClick={() => { onSearch(r); setQuery(""); setShowResults(false); }}>
-                  <div style={{fontSize:18}}>{r.icon || (r.type === "issue" ? "⚠️" : r.type === "incident" ? "🚨" : r.type === "permit" ? "📅" : "📍")}</div>
+                  <div className="search-result-icon">{r.icon || (r.type === "anomaly" ? "⚠️" : r.type === "incident" ? "🚨" : r.type === "permit" ? "📅" : "📍")}</div>
                   <div>
                     <div className="search-result-title">{r.name || r.title}</div>
-                    <div className="search-result-sub">{r.address || r.location?.join(", ")}</div>
+                    <div className="search-result-sub">{r.address || (r.location && r.location.join(", "))}</div>
                   </div>
                   <span className="search-result-type">{r.type}</span>
                 </div>
@@ -601,53 +1521,54 @@ const TopBar = ({ events, onSearch }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Floating filter strip
+// Filter strip
 // ─────────────────────────────────────────────────────────────────
 const FILTER_DEFS = [
-  { key: "issues", label: "Active Issues", color: "#F86A0B", count: () => ISSUES.length, default: true },
-  { key: "incidents", label: "Live Incidents", color: "#DE3423", count: () => INCIDENTS.length, default: true, danger: true },
-  { key: "fleet", label: "Fleet", color: "#0095DA", count: () => VEHICLES.length, default: true },
+  { key: "anomalies", label: "Detected Anomalies", color: "#F86A0B", count: () => ANOMALIES.length, default: true },
+  { key: "incidents", label: "Live Incidents", color: "#DE3423", count: () => INCIDENTS.length, default: true, variant: "error" },
+  { key: "fleet", label: "Fleet", color: "#0095DA", count: () => VEHICLES.length, default: true, variant: "info" },
   { key: "permits", label: "Permits", color: "#5069FF", count: () => PERMITS.length, default: false }
 ];
 
 const FilterStrip = ({ filters, setFilters, selectMode, onToggleSelect, onClearArea, hasArea }) => (
-  <>
-    <div className="floating filter-strip">
-      <div className="filter-chips">
-        {FILTER_DEFS.map(f => (
+  <div className="floating filter-strip">
+    <div className="filter-paper">
+      {FILTER_DEFS.map(f => {
+        const active = filters[f.key];
+        return (
           <button
             key={f.key}
-            className={"chip" + (filters[f.key] ? " active" : "") + (f.danger ? " danger" : "")}
+            className={"mui-chip" + (active ? " filled " + (f.variant || "") : "")}
             onClick={() => setFilters(s => ({ ...s, [f.key]: !s[f.key] }))}
           >
-            <span className="chip-dot" style={{background: filters[f.key] ? "rgba(255,255,255,0.9)" : f.color}}></span>
+            <span className="mui-chip-dot" style={{background: active ? "rgba(255,255,255,0.92)" : f.color}}></span>
             {f.label}
-            <span className="chip-count">{f.count()}</span>
+            <span className="mui-chip-count">{f.count()}</span>
           </button>
-        ))}
-      </div>
-      <div className="tool-group">
-        <button className={"tool-btn" + (selectMode ? " active" : "")} onClick={onToggleSelect}>
-          <Icon name="lasso" size={14} />
-          {selectMode ? "Cancel selection" : "Select area"}
-          {!selectMode && <kbd>S</kbd>}
-        </button>
-        {hasArea && (
-          <button className="tool-btn" onClick={onClearArea}>
-            <Icon name="x" size={14} />
-            Clear area
-          </button>
-        )}
-      </div>
+        );
+      })}
     </div>
-  </>
+    <div className="tool-group">
+      <button className={"mui-chip" + (selectMode ? " filled" : "")} onClick={onToggleSelect}>
+        <Icon name="lasso" size={14} />
+        {selectMode ? "Cancel selection" : "Select area"}
+        {!selectMode && <span style={{fontFamily:"'DM Mono', monospace", fontSize:10, padding:'1px 5px', borderRadius:3, background:'rgba(0,0,0,0.06)', marginLeft:4}}>S</span>}
+      </button>
+      {hasArea && (
+        <button className="mui-chip" onClick={onClearArea}>
+          <Icon name="x" size={13} />
+          Clear area
+        </button>
+      )}
+    </div>
+  </div>
 );
 
 // ─────────────────────────────────────────────────────────────────
-// Live event ticker (bottom-left)
+// Anomaly stream (bottom-left)
 // ─────────────────────────────────────────────────────────────────
-const Ticker = ({ events, onClick, freshIds }) => {
-  const recent = events.slice(0, 4);
+const AnomalyStream = ({ events, onClick, freshIds }) => {
+  const recent = events.slice(0, 5);
   const sevColor = (s) => s === "critical" ? "#DE3423" : s === "high" ? "#F86A0B" : s === "medium" ? "#FFB636" : "#0095DA";
   const iconFor = (e) => {
     if (e.type === "incident") {
@@ -655,117 +1576,213 @@ const Ticker = ({ events, onClick, freshIds }) => {
       if (e.obj.category === "water_main") return "💧";
       if (e.obj.category === "tree_down") return "🌳";
     }
-    if (e.obj.category === "pothole") return "🕳️";
-    if (e.obj.category === "sidewalk") return "🚶";
-    if (e.obj.category === "ada") return "♿";
-    if (e.obj.category === "sign") return "🛑";
-    if (e.obj.category === "drainage") return "💧";
-    if (e.obj.category === "tree") return "🌳";
-    if (e.obj.category === "graffiti") return "🎨";
-    if (e.obj.category === "code") return "🏗️";
+    const cat = e.obj.category;
+    if (cat === "pothole") return "🕳️";
+    if (cat === "sidewalk") return "🚶";
+    if (cat === "ada") return "♿";
+    if (cat === "sign") return "🛑";
+    if (cat === "drainage") return "💧";
+    if (cat === "tree") return "🌳";
+    if (cat === "graffiti") return "🎨";
+    if (cat === "code") return "🏗️";
     return "📍";
   };
   return (
-    <div className="floating ticker">
-      <div className="ticker-head">
+    <div className="floating anomaly-stream">
+      <div className="anomaly-stream-head">
         <span className="live-dot"></span>
-        <span className="ticker-h-label">Live activity</span>
-        <span className="ticker-h-count">+{recent.length} in last 2m</span>
+        <span className="anomaly-stream-h-label">Anomaly stream</span>
+        <span className="anomaly-stream-h-count">+{recent.length} new</span>
       </div>
-      {recent.map(e => (
-        <div key={e.id} className={"ticker-event" + (freshIds.has(e.id) ? " fresh" : "")} onClick={() => onClick(e.obj)}>
-          <div className="ticker-event-sev" style={{background: sevColor(e.severity)}}></div>
-          <div className="ticker-event-body">
-            <div className="ticker-event-title">{iconFor(e)} {e.title}</div>
-            <div className="ticker-event-meta">{e.source} · {fmtRelative(e.time)}</div>
+      <div className="anomaly-stream-list">
+        {recent.map(e => (
+          <div key={e.id} className={"anomaly-stream-item" + (freshIds.has(e.id) ? " fresh" : "")} onClick={() => onClick(e.obj)}>
+            <div className="anomaly-stream-sev" style={{background: sevColor(e.severity)}}></div>
+            <div className="anomaly-stream-icon">{iconFor(e)}</div>
+            <div className="anomaly-stream-body">
+              <div className="anomaly-stream-title">{e.title}</div>
+              <div className="anomaly-stream-meta">
+                <span>{e.source}</span>
+                <span>·</span>
+                <span>{fmtRelative(e.time)}</span>
+                {e.confidence && <>
+                  <span>·</span>
+                  <span className="anomaly-stream-conf">{Math.round(e.confidence * 100)}% conf</span>
+                </>}
+              </div>
+            </div>
+            <Icon name="arrow-right" size={12} color="rgba(255,255,255,0.5)"/>
           </div>
-          <Icon name="arrow-right" size={12} color="#8b9aab"/>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Detail panel (slides in from right when something selected)
+// Sparkline component
 // ─────────────────────────────────────────────────────────────────
-const DetailPanel = ({ obj, area, onClose, onAction }) => {
+const Sparkline = ({ data, expected, height=40, accentColor }) => {
+  if (!data || data.length === 0) return null;
+  const all = [...data, ...(expected || [])];
+  const min = Math.min(...all);
+  const max = Math.max(...all);
+  const range = max - min || 1;
+  const w = 100;
+  const stepX = w / (data.length - 1);
+  const ptToY = (v) => height - 6 - ((v - min) / range) * (height - 12);
+  const dataPath = data.map((v, i) => `${i === 0 ? "M" : "L"} ${i * stepX} ${ptToY(v)}`).join(" ");
+  const expPath = expected ? expected.map((v, i) => `${i === 0 ? "M" : "L"} ${i * stepX} ${ptToY(v)}`).join(" ") : null;
+  const lastPt = [stepX * (data.length - 1), ptToY(data[data.length - 1])];
+  return (
+    <svg width="100%" height={height} viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" style={{display:'block'}}>
+      {expPath && <path d={expPath} stroke="#9DA5B0" strokeWidth="1" fill="none" strokeDasharray="2 2"/>}
+      <path d={dataPath} stroke={accentColor || "#4B3FFF"} strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx={lastPt[0]} cy={lastPt[1]} r="2.5" fill={accentColor || "#4B3FFF"}/>
+      <circle cx={lastPt[0]} cy={lastPt[1]} r="5" fill={accentColor || "#4B3FFF"} opacity="0.25"/>
+    </svg>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Anomaly card (the heart of the experience)
+// ─────────────────────────────────────────────────────────────────
+const AnomalyCard = ({ anomaly }) => {
+  if (!anomaly) return null;
+  const conf = Math.round(anomaly.confidence * 100);
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const offset = c - (conf / 100) * c;
+  return (
+    <div className="anom-card">
+      <div className="anom-card-head">
+        <div className="anom-card-method">
+          <div className="anom-card-method-label">Detection method</div>
+          <div className="anom-card-method-name">{anomaly.method}</div>
+        </div>
+        <div className="anom-confidence">
+          <div className="anom-confidence-ring">
+            <svg viewBox="0 0 44 44">
+              <circle className="anom-confidence-track" cx="22" cy="22" r={r}/>
+              <circle className="anom-confidence-fill" cx="22" cy="22" r={r} strokeDasharray={c} strokeDashoffset={offset}/>
+            </svg>
+            <div className="anom-confidence-text">{conf}%</div>
+          </div>
+          <div className="anom-confidence-label">CONF</div>
+        </div>
+      </div>
+      <div className="anom-card-body">
+        <div className="anom-trigger">
+          <div className="anom-trigger-label">Trigger rule</div>
+          <div className="anom-trigger-text">{anomaly.rule}</div>
+        </div>
+        {anomaly.sparkline && (
+          <div className="anom-sparkline">
+            <div className="anom-sparkline-label">
+              <span>Observed (purple) vs expected (dashed)</span>
+              <span style={{color:'var(--mui-error)'}}>↓ deviation</span>
+            </div>
+            <Sparkline data={anomaly.sparkline} expected={anomaly.sparklineExpected} height={50}/>
+          </div>
+        )}
+        <div className="anom-stats">
+          <div className="anom-stat">
+            <div className="anom-stat-label">{anomaly.baselineLabel}</div>
+            <div className="anom-stat-value">{anomaly.baseline}</div>
+          </div>
+          <div className="anom-stat">
+            <div className="anom-stat-label">{anomaly.observedLabel}</div>
+            <div className="anom-stat-value">{anomaly.observed}</div>
+          </div>
+          <div className="anom-stat">
+            <div className="anom-stat-label">{anomaly.deviationLabel}</div>
+            <div className="anom-stat-value deviation">{anomaly.deviation}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────
+// Drawer (right detail panel)
+// ─────────────────────────────────────────────────────────────────
+const Drawer = ({ obj, area, onClose, onAction }) => {
   if (!obj && !area) {
-    return <div className="panel hidden"></div>;
+    return <div className="drawer hidden"></div>;
   }
 
+  // ── Area selection ──
   if (area) {
-    // Area selection panel
     const inArea = ALL_MAP_OBJECTS.filter(o => {
       const loc = o.location;
       if (!loc) return false;
       return distMeters(loc, area.center) <= area.radius;
     });
-    const issues = inArea.filter(o => o.type === "issue");
+    const anomalies = inArea.filter(o => o.type === "anomaly");
     const incidents = inArea.filter(o => o.type === "incident");
     const vehicles = inArea.filter(o => o.type === "vehicle");
     const permits = inArea.filter(o => o.type === "permit");
     const radiusMi = (area.radius / 1609.34).toFixed(2);
     const sqMi = (Math.PI * Math.pow(area.radius / 1609.34, 2)).toFixed(2);
     return (
-      <div className="panel">
-        <div className="panel-head">
-          <div className="panel-h-row">
-            <span className="panel-type-badge sev-low">Selected Area</span>
-            <span className="panel-id">r={radiusMi} mi</span>
-            <button className="panel-close" onClick={onClose}><Icon name="x" size={14}/></button>
+      <div className="drawer">
+        <div className="drawer-head">
+          <div className="drawer-h-row">
+            <span className="mui-badge primary">SELECTED AREA</span>
+            <span className="drawer-id">r = {radiusMi} mi</span>
+            <button className="mui-icon-btn" onClick={onClose}><Icon name="x" size={16}/></button>
           </div>
-          <div className="panel-title">Area selection</div>
-          <div className="panel-sub">
-            <strong>{area.center[0].toFixed(4)}°N, {area.center[1].toFixed(4)}°W</strong>
-            {" · "}{sqMi} sq mi
+          <div className="drawer-title">Area selection</div>
+          <div className="drawer-sub">
+            <strong>{area.center[0].toFixed(4)}°N, {area.center[1].toFixed(4)}°W</strong> · {sqMi} sq mi
           </div>
         </div>
-        <div className="panel-body">
-          <div className="panel-section">
-            <div className="panel-section-h">In selected area</div>
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8}}>
-              <div style={{padding:'12px 14px', background:'rgba(248,106,11,0.06)', borderRadius:8, border:'1px solid rgba(248,106,11,0.2)'}}>
-                <div style={{fontSize:24, fontWeight:700, color:'var(--orange)'}}>{issues.length}</div>
-                <div style={{fontSize:11, color:'var(--g600)', fontWeight:500}}>active issues</div>
+        <div className="drawer-body">
+          <div className="section">
+            <div className="section-h">In selected area</div>
+            <div className="area-tiles">
+              <div className="area-tile" style={{background:'rgba(248,106,11,0.05)', borderColor:'rgba(248,106,11,0.22)'}}>
+                <div className="area-tile-num" style={{color:'var(--mui-secondary-dark)'}}>{anomalies.length}</div>
+                <div className="area-tile-label">detected anomalies</div>
               </div>
-              <div style={{padding:'12px 14px', background:'rgba(222,52,35,0.06)', borderRadius:8, border:'1px solid rgba(222,52,35,0.2)'}}>
-                <div style={{fontSize:24, fontWeight:700, color:'var(--red)'}}>{incidents.length}</div>
-                <div style={{fontSize:11, color:'var(--g600)', fontWeight:500}}>live incidents</div>
+              <div className="area-tile" style={{background:'rgba(222,52,35,0.05)', borderColor:'rgba(222,52,35,0.22)'}}>
+                <div className="area-tile-num" style={{color:'var(--mui-error)'}}>{incidents.length}</div>
+                <div className="area-tile-label">live incidents</div>
               </div>
-              <div style={{padding:'12px 14px', background:'rgba(0,149,218,0.06)', borderRadius:8, border:'1px solid rgba(0,149,218,0.2)'}}>
-                <div style={{fontSize:24, fontWeight:700, color:'var(--blue)'}}>{vehicles.length}</div>
-                <div style={{fontSize:11, color:'var(--g600)', fontWeight:500}}>fleet vehicles</div>
+              <div className="area-tile" style={{background:'rgba(0,149,218,0.05)', borderColor:'rgba(0,149,218,0.22)'}}>
+                <div className="area-tile-num" style={{color:'var(--mui-info)'}}>{vehicles.length}</div>
+                <div className="area-tile-label">fleet vehicles</div>
               </div>
-              <div style={{padding:'12px 14px', background:'rgba(80,105,255,0.06)', borderRadius:8, border:'1px solid rgba(80,105,255,0.2)'}}>
-                <div style={{fontSize:24, fontWeight:700, color:'var(--blurple-lite)'}}>{permits.length}</div>
-                <div style={{fontSize:11, color:'var(--g600)', fontWeight:500}}>active permits</div>
+              <div className="area-tile" style={{background:'rgba(80,105,255,0.05)', borderColor:'rgba(80,105,255,0.22)'}}>
+                <div className="area-tile-num" style={{color:'var(--mui-primary-light)'}}>{permits.length}</div>
+                <div className="area-tile-label">active permits</div>
               </div>
             </div>
           </div>
 
-          {(issues.length > 0 || incidents.length > 0) && (
-            <div className="panel-section">
-              <div className="panel-section-h">Items in area</div>
-              {[...incidents, ...issues].slice(0, 8).map(o => (
+          {(anomalies.length > 0 || incidents.length > 0) && (
+            <div className="section">
+              <div className="section-h">Items in area</div>
+              {[...incidents, ...anomalies].slice(0, 8).map(o => (
                 <div key={o.id} className="linked-row">
                   <div className="linked-icon">{o.type === "incident" ? "🚨" : "⚠️"}</div>
                   <div>
                     <div className="linked-title">{o.title}</div>
                     <div className="linked-sub">{o.id} · {o.address}</div>
                   </div>
-                  <span className={"panel-type-badge sev-" + o.severity}>{o.severity}</span>
+                  <span className={"mui-badge " + (o.severity || "low")}>{o.severity}</span>
                 </div>
               ))}
-              {(issues.length + incidents.length) > 8 && (
-                <div style={{fontSize:11, color:'var(--g500)', textAlign:'center', padding:'6px 0'}}>+ {(issues.length + incidents.length) - 8} more</div>
+              {(anomalies.length + incidents.length) > 8 && (
+                <div style={{fontSize:'0.75rem', color:'var(--mui-text-secondary)', textAlign:'center', padding:'8px 0'}}>+ {(anomalies.length + incidents.length) - 8} more</div>
               )}
             </div>
           )}
 
-          <div className="panel-section">
-            <div className="panel-section-h">Take action on this area</div>
-            <div className="actions-grid">
+          <div className="section">
+            <div className="section-h">Take action on this area</div>
+            <div className="actions">
               {ACTIONS_FOR.area.map(a => (
                 <button key={a.key} className={"action-btn" + (a.primary ? " primary" : "") + (a.danger ? " danger" : "")} onClick={() => onAction(a)}>
                   <span className="action-icon">{a.icon}</span>
@@ -773,7 +1790,7 @@ const DetailPanel = ({ obj, area, onClose, onAction }) => {
                     <div className="action-title">{a.title}</div>
                     <div className="action-sub">{a.sub}</div>
                   </div>
-                  <Icon name="arrow-right" size={14} className="action-arrow"/>
+                  <Icon name="arrow-right" size={16} className="action-arrow"/>
                 </button>
               ))}
             </div>
@@ -783,111 +1800,130 @@ const DetailPanel = ({ obj, area, onClose, onAction }) => {
     );
   }
 
-  // Single object panel
-  const actionKey = obj.type === "issue" ? obj.category : obj.type === "incident" ? obj.category : obj.type;
+  // ── Single object ──
+  const actionKey = obj.type === "anomaly" ? obj.category : obj.type === "incident" ? obj.category : obj.type;
   const actions = ACTIONS_FOR[actionKey] || [];
-  const sevColor = (s) => s === "critical" ? "var(--red)" : s === "high" ? "var(--orange)" : s === "medium" ? "var(--yellow)" : "var(--blue)";
-  const sevClass = "sev-" + (obj.severity || "low");
 
-  // Type label for header
-  const typeLabel = obj.type === "issue" ? `${obj.category.toUpperCase()} ISSUE`
+  const typeLabel = obj.type === "anomaly" ? `${obj.category.toUpperCase()} ANOMALY`
     : obj.type === "incident" ? `${obj.category.replace('_',' ').toUpperCase()} INCIDENT`
     : obj.type === "vehicle" ? `FLEET · ${obj.class.toUpperCase()}`
     : obj.type === "permit" ? `PERMIT · ${obj.category.toUpperCase()}`
     : "OBJECT";
 
+  const showAnomalyCard = (obj.type === "anomaly" || obj.type === "incident") && obj.anomaly;
+
   return (
-    <div className="panel">
-      <div className="panel-head">
-        <div className="panel-h-row">
-          <span className={"panel-type-badge " + sevClass}>{typeLabel}</span>
-          <span className="panel-id">{obj.id}</span>
-          <button className="panel-close" onClick={onClose}><Icon name="x" size={14}/></button>
+    <div className="drawer">
+      <div className="drawer-head">
+        <div className="drawer-h-row">
+          <span className={"mui-badge " + (obj.severity || "low")}>{typeLabel}</span>
+          <span className="drawer-id">{obj.id}</span>
+          <button className="mui-icon-btn" onClick={onClose}><Icon name="x" size={16}/></button>
         </div>
-        <div className="panel-title">{obj.title || obj.name}</div>
-        <div className="panel-sub">
+        <div className="drawer-title">{obj.title || obj.name}</div>
+        <div className="drawer-sub">
           <strong>{obj.address || ""}</strong>
           {obj.detectedAt && <span> · detected {fmtRelative(obj.detectedAt)} via {obj.source}</span>}
           {obj.reportedAt && <span> · reported {fmtRelative(obj.reportedAt)}</span>}
           {obj.type === "vehicle" && <span> · {obj.status}</span>}
         </div>
       </div>
-      <div className="panel-body">
+      <div className="drawer-body">
 
-        {/* CYVL evidence image — for issues */}
-        {(obj.type === "issue" || obj.type === "incident") && (
-          <div className="panel-image" style={{background: obj.category === "pothole" ? "linear-gradient(135deg, #4a5568 0%, #2d3748 100%)" : obj.category === "accident" ? "linear-gradient(135deg, #6b3a3a 0%, #3a2020 100%)" : "linear-gradient(135deg, #4a5568 0%, #2d3748 100%)"}}>
-            <div className="panel-image-mark"><div className="ring"></div><div className="label">{obj.category === "pothole" ? `${obj.depth_cm}cm depth` : obj.category === "accident" ? "Live · 2 vehicles" : obj.category === "ada" ? `slope ${obj.location ? "9.4°" : ""}` : "Auto-detected"}</div></div>
-            <div className="panel-image-meta">
-              <span className="panel-image-tag">{obj.source || "Live"}</span>
-              {obj.type === "issue" && obj.source === "CYVL" && <span className="panel-image-tag">±0.7cm LiDAR</span>}
-              {obj.type === "incident" && <span className="panel-image-tag">Dispatch live</span>}
+        {/* Evidence image */}
+        {(obj.type === "anomaly" || obj.type === "incident") && (
+          <div className="evidence-image" style={{background: obj.category === "accident" ? "linear-gradient(135deg, #6b3a3a 0%, #3a2020 100%)" : "linear-gradient(135deg, #4a5568 0%, #2d3748 100%)"}}>
+            <div className="evidence-mark"><div className="ring"></div><div className="label">{obj.category === "pothole" ? `${obj.depth_cm}cm depth` : obj.category === "accident" ? "Live · 2 vehicles" : obj.category === "ada" ? "slope 9.4°" : "Anomaly point"}</div></div>
+            <div className="evidence-meta">
+              <span className="evidence-tag">{obj.source || "Live"}</span>
+              {obj.type === "anomaly" && obj.source.includes("LiDAR") && <span className="evidence-tag">±0.7cm precision</span>}
+              {obj.type === "incident" && <span className="evidence-tag">Dispatch live</span>}
             </div>
+          </div>
+        )}
+
+        {/* Anomaly Detection card — front and center for anomalies/incidents */}
+        {showAnomalyCard && (
+          <div className="section">
+            <div className="section-h">Why this was flagged</div>
+            <AnomalyCard anomaly={obj.anomaly}/>
           </div>
         )}
 
         {/* Description */}
         {obj.description && (
-          <div className="panel-section">
-            <div className="panel-section-h">What we know</div>
-            <div style={{fontSize:13, color:'var(--g700)', lineHeight:1.6}}>{obj.description}</div>
+          <div className="section">
+            <div className="section-h">Anomaly summary</div>
+            <div className="mui-body1" style={{color:'var(--mui-text-primary)', fontSize:'0.875rem', lineHeight:1.6}}>{obj.description}</div>
           </div>
         )}
 
         {/* Key facts */}
-        <div className="panel-section">
-          <div className="panel-section-h">Key facts</div>
-          {obj.type === "issue" && obj.category === "pothole" && (
+        <div className="section">
+          <div className="section-h">Key facts</div>
+          {obj.type === "anomaly" && obj.category === "pothole" && (
             <>
-              <div className="field-row"><div className="field-label">PCI score</div><div className="field-value big" style={{color: sevColor(obj.severity)}}>{obj.pci} / 100</div></div>
-              <div className="field-row"><div className="field-label">PCI trend</div><div className="field-value">{obj.pciTrend} pts in 6 weeks</div></div>
-              <div className="field-row"><div className="field-label">Largest pothole</div><div className="field-value mono">{obj.depth_cm}cm × {obj.area_sqm || "—"}m²</div></div>
-              <div className="field-row"><div className="field-label">Linked permit</div><div className="field-value mono">{obj.linkedPermit || "none"}</div></div>
-              <div className="field-row"><div className="field-label">Parcel</div><div className="field-value mono">{obj.parcelId}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Pavement score</div><div className="mui-list-value big" style={{color: obj.severity === "critical" ? "var(--mui-error)" : "var(--mui-secondary)"}}>{obj.pci} / 100</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Trend</div><div className="mui-list-value">{obj.pciTrend} pts in 6 weeks</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Largest pothole</div><div className="mui-list-value mono">{obj.depth_cm}cm × {obj.area_sqm || "—"}m²</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Linked permit</div><div className="mui-list-value mono">{obj.linkedPermit || "none"}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Parcel</div><div className="mui-list-value mono">{obj.parcelId}</div></div>
             </>
           )}
-          {obj.type === "issue" && obj.category !== "pothole" && (
+          {obj.type === "anomaly" && obj.category !== "pothole" && (
             <>
-              {obj.parcelId && <div className="field-row"><div className="field-label">Parcel</div><div className="field-value mono">{obj.parcelId}</div></div>}
-              <div className="field-row"><div className="field-label">Source</div><div className="field-value">{obj.source}</div></div>
-              <div className="field-row"><div className="field-label">Detected</div><div className="field-value mono">{fmtRelative(obj.detectedAt)}</div></div>
-              <div className="field-row"><div className="field-label">Severity</div><div className="field-value" style={{color: sevColor(obj.severity), fontWeight:700, textTransform:'capitalize'}}>{obj.severity}</div></div>
+              {obj.parcelId && <div className="mui-list-row"><div className="mui-list-label">Parcel</div><div className="mui-list-value mono">{obj.parcelId}</div></div>}
+              <div className="mui-list-row"><div className="mui-list-label">Detection source</div><div className="mui-list-value">{obj.source}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Detected</div><div className="mui-list-value mono">{fmtRelative(obj.detectedAt)}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Severity</div><div className="mui-list-value" style={{textTransform:'capitalize', fontWeight:700}}>{obj.severity}</div></div>
             </>
           )}
           {obj.type === "incident" && (
             <>
-              <div className="field-row"><div className="field-label">Status</div><div className="field-value" style={{textTransform:'capitalize', fontWeight:700, color:'var(--orange)'}}>{obj.status}</div></div>
-              <div className="field-row"><div className="field-label">Units on scene</div><div className="field-value">{obj.units.join(", ")}</div></div>
-              <div className="field-row"><div className="field-label">Lanes blocked</div><div className="field-value">{obj.lanes_blocked} of total</div></div>
-              <div className="field-row"><div className="field-label">Reported</div><div className="field-value mono">{fmtRelative(obj.reportedAt)}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Status</div><div className="mui-list-value" style={{textTransform:'capitalize', fontWeight:700, color:'var(--mui-secondary-dark)'}}>{obj.status}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Units on scene</div><div className="mui-list-value">{obj.units.join(", ")}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Lanes blocked</div><div className="mui-list-value">{obj.lanes_blocked} of total</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Reported</div><div className="mui-list-value mono">{fmtRelative(obj.reportedAt)}</div></div>
             </>
           )}
           {obj.type === "vehicle" && (
             <>
-              <div className="field-row"><div className="field-label">Vehicle</div><div className="field-value">{obj.yearMakeModel}</div></div>
-              <div className="field-row"><div className="field-label">Driver</div><div className="field-value">{obj.driver}</div></div>
-              <div className="field-row"><div className="field-label">Speed</div><div className="field-value mono">{obj.speed} mph</div></div>
-              <div className="field-row"><div className="field-label">Fuel</div><div className="field-value">{obj.fuelPct}%</div></div>
-              <div className="field-row"><div className="field-label">Odometer</div><div className="field-value mono">{obj.odometer.toLocaleString()} mi</div></div>
-              {obj.fault && <div className="field-row"><div className="field-label">Fault code</div><div className="field-value mono" style={{color:'var(--red)'}}>{obj.fault}</div></div>}
+              <div className="mui-list-row"><div className="mui-list-label">Vehicle</div><div className="mui-list-value">{obj.yearMakeModel}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Driver</div><div className="mui-list-value">{obj.driver}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Speed</div><div className="mui-list-value mono">{obj.speed} mph</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Fuel</div><div className="mui-list-value">{obj.fuelPct}%</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Odometer</div><div className="mui-list-value mono">{obj.odometer.toLocaleString()} mi</div></div>
+              {obj.fault && <div className="mui-list-row"><div className="mui-list-label">Fault code</div><div className="mui-list-value mono" style={{color:'var(--mui-error)'}}>{obj.fault}</div></div>}
             </>
           )}
           {obj.type === "permit" && (
             <>
-              <div className="field-row"><div className="field-label">Status</div><div className="field-value">{obj.status}</div></div>
-              <div className="field-row"><div className="field-label">Contractor</div><div className="field-value">{obj.contractor}</div></div>
-              <div className="field-row"><div className="field-label">Issued</div><div className="field-value mono">{obj.issued}</div></div>
-              <div className="field-row"><div className="field-label">Expires</div><div className="field-value mono">{obj.expires}</div></div>
-              <div className="field-row"><div className="field-label">Parcel</div><div className="field-value mono">{obj.parcelId}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Status</div><div className="mui-list-value">{obj.status}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Contractor</div><div className="mui-list-value">{obj.contractor}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Issued</div><div className="mui-list-value mono">{obj.issued}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Expires</div><div className="mui-list-value mono">{obj.expires}</div></div>
+              <div className="mui-list-row"><div className="mui-list-label">Parcel</div><div className="mui-list-value mono">{obj.parcelId}</div></div>
             </>
           )}
         </div>
 
+        {/* Recommendation banner */}
+        {obj.recommendation && (
+          <div className="section">
+            <div className="recommendation">
+              <div className="recommendation-icon">💡</div>
+              <div className="recommendation-text">
+                <strong>Recommended response:</strong> {obj.recommendation}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ACTIONS */}
         {actions.length > 0 && (
-          <div className="panel-section">
-            <div className="panel-section-h">Take action</div>
-            <div className="actions-grid">
+          <div className="section">
+            <div className="section-h">Take action</div>
+            <div className="actions">
               {actions.map(a => (
                 <button key={a.key} className={"action-btn" + (a.primary ? " primary" : "") + (a.danger ? " danger" : "")} onClick={() => onAction(a)}>
                   <span className="action-icon">{a.icon}</span>
@@ -895,7 +1931,7 @@ const DetailPanel = ({ obj, area, onClose, onAction }) => {
                     <div className="action-title">{a.title}</div>
                     <div className="action-sub">{a.sub}</div>
                   </div>
-                  <Icon name="arrow-right" size={14} className="action-arrow"/>
+                  <Icon name="arrow-right" size={16} className="action-arrow"/>
                 </button>
               ))}
             </div>
@@ -907,16 +1943,16 @@ const DetailPanel = ({ obj, area, onClose, onAction }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────
-// Toast notifications
+// Snackbar / toasts
 // ─────────────────────────────────────────────────────────────────
-const Toasts = ({ toasts }) => (
-  <div className="toast-stack">
+const Snackbars = ({ toasts }) => (
+  <div className="snackbar-stack">
     {toasts.map(t => (
-      <div key={t.id} className={"toast " + (t.color || "")}>
-        <div className="toast-icon">{t.icon || "✓"}</div>
-        <div className="toast-body">
-          <div className="toast-title">{t.title}</div>
-          <div className="toast-sub">{t.sub}</div>
+      <div key={t.id} className={"snackbar " + (t.color || "")}>
+        <div className="snackbar-icon">{t.icon || "✓"}</div>
+        <div>
+          <div className="snackbar-title">{t.title}</div>
+          <div className="snackbar-sub">{t.sub}</div>
         </div>
       </div>
     ))}
@@ -928,10 +1964,10 @@ const Toasts = ({ toasts }) => (
 // ─────────────────────────────────────────────────────────────────
 const App = () => {
   const mapRef = React.useRef(null);
-  const layersRef = React.useRef({ issues: null, incidents: null, fleet: null, permits: null });
+  const layersRef = React.useRef({ anomalies: null, incidents: null, fleet: null, permits: null });
   const selectionRef = React.useRef({ start: null, circle: null });
 
-  const [filters, setFilters] = React.useState({ issues: true, incidents: true, fleet: true, permits: false });
+  const [filters, setFilters] = React.useState({ anomalies: true, incidents: true, fleet: true, permits: false });
   const [selected, setSelected] = React.useState(null);
   const [area, setArea] = React.useState(null);
   const [selectMode, setSelectMode] = React.useState(false);
@@ -945,92 +1981,70 @@ const App = () => {
     setTimeout(() => setToasts(ts => ts.filter(x => x.id !== id)), 5000);
   };
 
-  // Build map markers
-  const buildMarkers = React.useCallback(() => {
-    const map = mapRef.current;
-    if (!map) return;
+  // Init map
+  React.useEffect(() => {
+    if (mapRef.current) return;
+    const map = L.map('map', { zoomControl: false, attributionControl: false, doubleClickZoom: false }).setView(CITY.center, 14);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(map);
+    mapRef.current = map;
 
-    // Clear previous
-    Object.values(layersRef.current).forEach(g => { if (g) map.removeLayer(g); });
-
-    // Issues layer
-    const issuesGroup = L.layerGroup();
-    ISSUES.forEach(i => {
+    // Build layers
+    const anomGroup = L.layerGroup();
+    ANOMALIES.forEach(i => {
       const sevColor = i.severity === "critical" ? "#DE3423" : i.severity === "high" ? "#F86A0B" : i.severity === "medium" ? "#FFB636" : "#0095DA";
-      const iconHtml = i.severity === "critical"
+      const html = i.severity === "critical"
         ? `<div class="live-marker"><div class="pulse-ring" style="background:${sevColor}"></div><div class="core" style="background:${sevColor}">!</div></div>`
         : `<div style="background:${sevColor};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);font-size:11px;font-weight:700">!</div>`;
-      const m = L.marker(i.location, { icon: L.divIcon({ html: iconHtml, className: '', iconSize: [28,28], iconAnchor: [14,14] }) });
+      const m = L.marker(i.location, { icon: L.divIcon({ html, className: '', iconSize: [28,28], iconAnchor: [14,14] }) });
       m.on('click', () => { setSelected(i); setArea(null); });
-      issuesGroup.addLayer(m);
+      anomGroup.addLayer(m);
     });
-    layersRef.current.issues = issuesGroup;
+    layersRef.current.anomalies = anomGroup;
 
-    // Incidents layer (always pulsing)
-    const incidentsGroup = L.layerGroup();
+    const incGroup = L.layerGroup();
     INCIDENTS.forEach(i => {
-      const iconHtml = `<div class="live-marker"><div class="pulse-ring" style="background:#DE3423"></div><div class="core" style="background:#DE3423">${i.category === "accident" ? "🚨" : i.category === "water_main" ? "💧" : "🌳"}</div></div>`;
-      const m = L.marker(i.location, { icon: L.divIcon({ html: iconHtml, className: '', iconSize: [28,28], iconAnchor: [14,14] }) });
+      const html = `<div class="live-marker"><div class="pulse-ring" style="background:#DE3423"></div><div class="core" style="background:#DE3423">${i.category === "accident" ? "🚨" : i.category === "water_main" ? "💧" : "🌳"}</div></div>`;
+      const m = L.marker(i.location, { icon: L.divIcon({ html, className: '', iconSize: [28,28], iconAnchor: [14,14] }) });
       m.on('click', () => { setSelected(i); setArea(null); });
-      incidentsGroup.addLayer(m);
+      incGroup.addLayer(m);
     });
-    layersRef.current.incidents = incidentsGroup;
+    layersRef.current.incidents = incGroup;
 
-    // Fleet layer
     const fleetGroup = L.layerGroup();
     VEHICLES.forEach(v => {
-      const iconHtml = `<div style="background:${v.color};color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);font-size:14px;">${v.icon}</div>`;
-      const m = L.marker(v.location, { icon: L.divIcon({ html: iconHtml, className: '', iconSize: [30,30], iconAnchor: [15,15] }) });
+      const html = `<div style="background:${v.color};color:#fff;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.5);font-size:14px">${v.icon}</div>`;
+      const m = L.marker(v.location, { icon: L.divIcon({ html, className: '', iconSize: [30,30], iconAnchor: [15,15] }) });
       m.on('click', () => { setSelected(v); setArea(null); });
       fleetGroup.addLayer(m);
     });
     layersRef.current.fleet = fleetGroup;
 
-    // Permits layer
-    const permitsGroup = L.layerGroup();
+    const permGroup = L.layerGroup();
     PERMITS.forEach(p => {
-      const iconHtml = `<div style="background:#5069FF;color:#fff;border-radius:4px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:11px;font-weight:700;">P</div>`;
-      const m = L.marker(p.location, { icon: L.divIcon({ html: iconHtml, className: '', iconSize: [22,22], iconAnchor: [11,11] }) });
+      const html = `<div style="background:#5069FF;color:#fff;border-radius:4px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);font-size:11px;font-weight:700">P</div>`;
+      const m = L.marker(p.location, { icon: L.divIcon({ html, className: '', iconSize: [22,22], iconAnchor: [11,11] }) });
       m.on('click', () => { setSelected(p); setArea(null); });
-      permitsGroup.addLayer(m);
+      permGroup.addLayer(m);
     });
-    layersRef.current.permits = permitsGroup;
+    layersRef.current.permits = permGroup;
 
-    // Apply filter visibility
+    // Apply default filters
     Object.keys(filters).forEach(k => {
       if (filters[k] && layersRef.current[k]) layersRef.current[k].addTo(map);
     });
-  }, [filters]);
 
-  // Initialize map
-  React.useEffect(() => {
-    if (mapRef.current) return;
-    const map = L.map('map', { zoomControl: false, attributionControl: false, doubleClickZoom: false }).setView(CITY.center, 14);
-
-    // Dark basemap to feel like Palantir
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd', attribution: '' }).addTo(map);
-    mapRef.current = map;
-
-    buildMarkers();
-
-    // ESC closes panel / cancels select mode
-    const handleKey = (e) => {
-      if (e.key === "Escape") {
-        setSelected(null);
-        setArea(null);
-        setSelectMode(false);
-      }
-      if (e.key === "s" || e.key === "S") {
-        if (!e.target.matches || !e.target.matches('input, textarea')) {
-          setSelectMode(s => !s);
-        }
+    // Keyboard shortcuts
+    const onKey = (e) => {
+      if (e.key === "Escape") { setSelected(null); setArea(null); setSelectMode(false); }
+      if ((e.key === "s" || e.key === "S") && !e.target.matches?.('input, textarea')) {
+        setSelectMode(s => !s);
       }
     };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  // Re-render markers when filter changes
+  // Re-apply filter visibility
   React.useEffect(() => {
     if (!mapRef.current) return;
     Object.keys(filters).forEach(k => {
@@ -1044,19 +2058,13 @@ const App = () => {
     });
   }, [filters]);
 
-  // Selection mode — drag to draw a circle
+  // Selection mode
   React.useEffect(() => {
     const map = mapRef.current; if (!map) return;
-    if (!selectMode) {
-      // Re-enable map drag
-      map.dragging.enable();
-      return;
-    }
+    if (!selectMode) { map.dragging.enable(); return; }
     map.dragging.disable();
 
-    let startLatLng = null;
-    let circle = null;
-
+    let startLatLng = null, circle = null;
     const onDown = (e) => {
       startLatLng = e.latlng;
       if (circle) { map.removeLayer(circle); circle = null; }
@@ -1064,38 +2072,27 @@ const App = () => {
     };
     const onMove = (e) => {
       if (!startLatLng || !circle) return;
-      const r = map.distance(startLatLng, e.latlng);
-      circle.setRadius(r);
+      circle.setRadius(map.distance(startLatLng, e.latlng));
     };
     const onUp = (e) => {
-      if (!startLatLng || !circle) { return; }
+      if (!startLatLng || !circle) return;
       const r = map.distance(startLatLng, e.latlng);
-      if (r < 50) {
-        // too small, cancel
-        map.removeLayer(circle);
-        circle = null;
-        startLatLng = null;
-        return;
-      }
+      if (r < 50) { map.removeLayer(circle); circle = null; startLatLng = null; return; }
       selectionRef.current.circle = circle;
       setArea({ center: [startLatLng.lat, startLatLng.lng], radius: r });
       setSelected(null);
       setSelectMode(false);
       startLatLng = null;
     };
-
     map.on('mousedown', onDown);
     map.on('mousemove', onMove);
     map.on('mouseup', onUp);
     return () => {
-      map.off('mousedown', onDown);
-      map.off('mousemove', onMove);
-      map.off('mouseup', onUp);
+      map.off('mousedown', onDown); map.off('mousemove', onMove); map.off('mouseup', onUp);
       if (circle && !selectionRef.current.circle) map.removeLayer(circle);
     };
   }, [selectMode]);
 
-  // Clear area circle when cleared
   React.useEffect(() => {
     if (!area && selectionRef.current.circle && mapRef.current) {
       mapRef.current.removeLayer(selectionRef.current.circle);
@@ -1103,20 +2100,20 @@ const App = () => {
     }
   }, [area]);
 
-  // Live event injection — every 18s
+  // Live event injection
   React.useEffect(() => {
     const titles = [
-      { title: "New pothole — Sycamore & 2nd", category: "pothole", icon: "🕳️", severity: "high", source: "CYVL" },
-      { title: "Sudden brake event detected on Highland Ave", category: "vehicle", icon: "🚗", severity: "medium", source: "Telematics" },
-      { title: "AI flagged temporary sign on Court Sq", category: "sign", icon: "🛑", severity: "low", source: "CYVL" },
-      { title: "Smart hydrant FH-118 flow anomaly", category: "drainage", icon: "💧", severity: "medium", source: "IoT" },
-      { title: "311 report: streetlight out — Park Ave", category: "code", icon: "💡", severity: "low", source: "Citizen 311" }
+      { title: "Surface defect detected — Sycamore & 2nd", category: "pothole", severity: "high", source: "AI Vision", confidence: 0.94 },
+      { title: "Sudden brake event on Highland Ave (4.2σ)", category: "vehicle", severity: "medium", source: "Telematics", confidence: 0.88 },
+      { title: "Unpermitted sign detected on Court Sq", category: "sign", severity: "low", source: "AI Vision", confidence: 0.91 },
+      { title: "Hydrant flow anomaly — FH-118", category: "drainage", severity: "medium", source: "IoT Sensor", confidence: 0.96 },
+      { title: "Streetlight outage cluster — Park Ave", category: "code", severity: "low", source: "IoT Sensor", confidence: 0.99 }
     ];
     let i = 0;
     const interval = setInterval(() => {
       const t = titles[i % titles.length];
       const id = "EVT-" + Date.now();
-      const fresh = { id, time: new Date().toISOString(), source: t.source, severity: t.severity, title: t.title, type: "issue", obj: { id, title: t.title, category: t.category } };
+      const fresh = { id, time: new Date().toISOString(), source: t.source, severity: t.severity, title: t.title, type: "anomaly", confidence: t.confidence, obj: { id, title: t.title, category: t.category } };
       setEvents(es => [fresh, ...es].slice(0, 30));
       setFreshIds(s => { const n = new Set(s); n.add(id); return n; });
       setTimeout(() => setFreshIds(s => { const n = new Set(s); n.delete(id); return n; }), 2000);
@@ -1136,66 +2133,57 @@ const App = () => {
     }
   };
 
-  const zoomIn = () => mapRef.current?.zoomIn();
-  const zoomOut = () => mapRef.current?.zoomOut();
-
   return (
     <>
-      <TopBar events={events} onSearch={handleSearch}/>
+      <AppBar events={events} onSearch={handleSearch}/>
       <div className={"map-host" + (selectMode ? " selecting" : "")}>
         <div id="map"></div>
 
         <FilterStrip
-          filters={filters}
-          setFilters={setFilters}
-          selectMode={selectMode}
-          onToggleSelect={() => setSelectMode(s => !s)}
-          onClearArea={() => setArea(null)}
-          hasArea={!!area}
+          filters={filters} setFilters={setFilters}
+          selectMode={selectMode} onToggleSelect={() => setSelectMode(s => !s)}
+          onClearArea={() => setArea(null)} hasArea={!!area}
         />
 
         {selectMode && (
-          <div className="selection-mode-banner">
+          <div className="selection-banner">
             <Icon name="lasso" size={14}/>
             Drag on the map to draw a selection circle
-            <kbd>ESC</kbd>
-            <span style={{opacity:0.85}}>to cancel</span>
+            <kbd>ESC</kbd> to cancel
           </div>
         )}
 
-        <Ticker events={events} freshIds={freshIds} onClick={(obj) => {
-          // If event's obj has location, navigate. Otherwise just show panel
+        <AnomalyStream events={events} freshIds={freshIds} onClick={(obj) => {
           if (obj.location && mapRef.current) mapRef.current.flyTo(obj.location, 16, { duration: 0.5 });
-          if (obj.id && (obj.type === "issue" || obj.type === "incident" || obj.type === "vehicle" || obj.type === "permit")) {
+          if (obj.id) {
             setSelected(obj);
             setArea(null);
           }
         }}/>
 
         <div className="floating map-zoom">
-          <button onClick={zoomIn}><Icon name="plus" size={14}/></button>
-          <button onClick={zoomOut}><Icon name="minus" size={14}/></button>
+          <button onClick={() => mapRef.current?.zoomIn()}><Icon name="plus" size={14}/></button>
+          <button onClick={() => mapRef.current?.zoomOut()}><Icon name="minus" size={14}/></button>
         </div>
 
         {!selected && !area && !selectMode && (
-          <div className="floating help-card">
-            <div className="help-title">Get started</div>
-            <div className="help-list">
-              → Click any marker to inspect and take action<br/>
-              → Press <kbd>S</kbd> or use <strong style={{color:'#fff'}}>Select area</strong> to lasso a region<br/>
+          <div className="floating hint-card">
+            <div className="hint-title">Get started</div>
+            <div className="hint-list">
+              → Click any marker to inspect the anomaly and act<br/>
+              → Press <kbd>S</kbd> or use <strong>Select area</strong> to lasso a region<br/>
               → Use search <kbd>⌘K</kbd> to jump to any object
             </div>
           </div>
         )}
 
-        <DetailPanel
-          obj={selected}
-          area={area}
+        <Drawer
+          obj={selected} area={area}
           onClose={() => { setSelected(null); setArea(null); }}
           onAction={handleAction}
         />
       </div>
-      <Toasts toasts={toasts}/>
+      <Snackbars toasts={toasts}/>
     </>
   );
 };
